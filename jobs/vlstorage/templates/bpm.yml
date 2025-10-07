@@ -1,0 +1,24 @@
+---
+processes:
+  - name: vlstorage
+    executable: /var/vcap/jobs/vlstorage/bin/vlstorage
+    persistent_disk: true
+    ephemeral_disk: false
+
+    limits:
+      open_files: 65536
+
+    env:
+      DOCKER_HOST: unix:///var/vcap/sys/run/docker/docker.sock
+      VLSTORAGE_PORT: <%= p('vlstorage.port') %>
+      VLSTORAGE_STORAGE_PATH: <%= p('vlstorage.storage_path') %>
+      VLSTORAGE_LOG_LEVEL: <%= p('vlstorage.log_level') %>
+
+    unsafe:
+      privileged: true
+
+    additional_volumes:
+      - path: /var/vcap/sys/run/docker/docker.sock
+        writable: true
+      - path: /var/vcap/sys/run/ready
+        writable: true

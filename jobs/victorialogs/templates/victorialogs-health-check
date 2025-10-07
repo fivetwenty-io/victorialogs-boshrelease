@@ -1,0 +1,21 @@
+#!/bin/bash
+set -e
+
+export DOCKER_HOST=unix:///var/vcap/sys/run/docker/docker.sock
+CONTAINER_NAME="victorialogs"
+PORT=<%= p('victorialogs.port') %>
+
+# Check if container is running
+if ! docker ps --filter "name=${CONTAINER_NAME}" --filter "status=running" | grep -q "$CONTAINER_NAME"; then
+    echo "ERROR: VictoriaLogs container is not running"
+    exit 1
+fi
+
+# Check if API is responsive
+if ! curl -sf "http://localhost:${PORT}/health" >/dev/null 2>&1; then
+    echo "ERROR: VictoriaLogs API is not responding"
+    exit 1
+fi
+
+echo "VictoriaLogs is healthy"
+exit 0

@@ -1,0 +1,19 @@
+{
+  "data-root": "/var/vcap/store/docker-data",
+  "storage-driver": "<%= p('docker.storage_driver') %>",
+<% unless p('docker.insecure_registries').empty? -%>
+  "insecure-registries": <%= p('docker.insecure_registries').to_json %>,
+<% end -%>
+<% unless p('docker.registry_mirrors').empty? -%>
+  "registry-mirrors": <%= p('docker.registry_mirrors').to_json %>,
+<% end -%>
+  "log-driver": "json-file",
+  "log-opts": {
+    "max-size": "10m",
+    "max-file": "3"
+  },
+  "live-restore": true,
+  "userland-proxy": false,
+  "metrics-addr": "0.0.0.0:9323",
+  "experimental": true
+}

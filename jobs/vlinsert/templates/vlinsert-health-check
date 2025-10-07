@@ -1,0 +1,12 @@
+#!/bin/bash
+set -e
+
+PORT=<%= p('vlinsert.port') %>
+
+# Check if VLInsert is responding to health checks
+if curl -sf "http://localhost:${PORT}/health" >/dev/null 2>&1; then
+    exit 0
+else
+    echo "VLInsert health check failed"
+    exit 1
+fi

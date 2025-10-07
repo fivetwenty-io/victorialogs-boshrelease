@@ -1,0 +1,9 @@
+#!/bin/bash
+set -e -x
+
+# VictoriaLogs packaging script
+# VictoriaLogs runs as a Docker container, so no blobs needed
+# Container image will be pulled at runtime in the job
+
+echo "VictoriaLogs package prepared (container-based deployment)"
+echo "Container image victoriametrics/victoria-logs:v1.35.0 will be pulled at runtime"

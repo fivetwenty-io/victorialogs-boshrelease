@@ -1,0 +1,31 @@
+#!/bin/bash
+set -e
+
+PORT=<%= p('vlselect.port') %>
+READY_DIR=/var/vcap/sys/run/ready
+READY_FILE=$READY_DIR/vlselect
+
+set_ready() {
+    local service=$1
+    touch $READY_DIR/$service
+    echo "[$(date '+%H:%M:%S')] $service: Ready"
+}
+
+echo "[$(date '+%H:%M:%S')] VLSelect: Starting post-start health check..."
+
+# Wait for VLSelect to be ready
+max_wait=60
+elapsed=0
+
+while [ $elapsed -lt $max_wait ]; do
+    if curl -sf "http://localhost:${PORT}/health" >/dev/null 2>&1; then
+        echo "[$(date '+%H:%M:%S')] VLSelect health check passed"
+        set_ready "vlselect"
+        exit 0
+    fi
+    sleep 1
+    elapsed=$((elapsed + 1))
+done
+
+echo "[$(date '+%H:%M:%S')] ERROR: VLSelect health check failed after ${max_wait}s"
+exit 1

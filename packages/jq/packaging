@@ -1,0 +1,13 @@
+#!/bin/bash
+set -e -x
+
+# jq packaging script
+echo "Installing jq to ${BOSH_INSTALL_TARGET}"
+
+mkdir -p "${BOSH_INSTALL_TARGET}/bin"
+
+# Copy jq binary and make it executable
+cp jq/jq-linux64 "${BOSH_INSTALL_TARGET}/bin/jq"
+chmod +x "${BOSH_INSTALL_TARGET}/bin/jq"
+
+echo "jq installation complete"

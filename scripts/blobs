@@ -1,0 +1,349 @@
+#!/usr/bin/env perl
+
+use strict;
+use warnings;
+use HTTP::Tiny;
+use File::Basename;
+use File::Temp qw(tempdir);
+use File::Spec;
+use Cwd qw(getcwd abs_path);
+
+# Configuration
+my $BASE_URL_JAMMY = 'https://download.docker.com/linux/ubuntu/dists/jammy/pool/stable/amd64/';
+my $BASE_URL_NOBLE = 'https://download.docker.com/linux/ubuntu/dists/noble/pool/stable/amd64/';
+
+# Global flags
+my $DRY_RUN = 0;
+
+# Package patterns for Docker CE
+my @DOCKER_PACKAGES = (
+    'containerd.io',
+    'docker-ce_',
+    'docker-ce-cli_',
+    'docker-buildx-plugin_',
+    'docker-compose-plugin_'
+);
+
+sub usage {
+    print <<EOF;
+Usage: $0 [all|docker-ce] [--dry-run]
+
+Updates BOSH release blobs to latest versions.
+
+Arguments:
+    all           - Update all blobs (docker-ce)
+    docker-ce     - Update only Docker CE blobs
+
+Options:
+    --dry-run     - Show what would be updated without making changes
+
+Examples:
+    $0 all
+    $0 docker-ce --dry-run
+
+EOF
+    exit 1;
+}
+
+sub log_info {
+    my ($msg) = @_;
+    print "[INFO] $msg\n";
+}
+
+sub log_error {
+    my ($msg) = @_;
+    print STDERR "[ERROR] $msg\n";
+}
+
+sub run_command {
+    my ($cmd) = @_;
+    if ($DRY_RUN) {
+        log_info("[DRY-RUN] Would run: $cmd");
+        return 1;
+    } else {
+        log_info("Running: $cmd");
+        my $result = system($cmd);
+        if ($result != 0) {
+            log_error("Command failed with exit code: " . ($result >> 8));
+            return 0;
+        }
+        return 1;
+    }
+}
+
+sub create_http_client {
+    my ($timeout) = @_;
+    $timeout //= 30;
+
+    my %opts = (
+        timeout => $timeout,
+        agent => 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+        default_headers => {
+            'Accept' => 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            'Accept-Language' => 'en-US,en;q=0.5',
+            'Accept-Encoding' => 'gzip,deflate',
+            'Connection' => 'keep-alive',
+            'Upgrade-Insecure-Requests' => '1',
+        },
+    );
+
+    # Check for proxy environment variables
+    if ($ENV{HTTP_PROXY} || $ENV{http_proxy}) {
+        $opts{http_proxy} = $ENV{HTTP_PROXY} || $ENV{http_proxy};
+    }
+    if ($ENV{HTTPS_PROXY} || $ENV{https_proxy}) {
+        $opts{https_proxy} = $ENV{HTTPS_PROXY} || $ENV{https_proxy};
+    }
+
+    # Handle SSL verification for corporate environments
+    if ($ENV{CURL_CA_BUNDLE}) {
+        $opts{SSL_options} = { SSL_ca_file => $ENV{CURL_CA_BUNDLE} };
+    } elsif ($ENV{SSL_CERT_FILE}) {
+        $opts{SSL_options} = { SSL_ca_file => $ENV{SSL_CERT_FILE} };
+    }
+
+    return HTTP::Tiny->new(%opts);
+}
+
+sub fetch_url {
+    my ($url) = @_;
+    my $http = create_http_client(45);  # Longer timeout for bastion environments
+    log_info("Fetching: $url");
+
+    my $response = $http->get($url);
+    if (!$response->{success}) {
+        log_error("Failed to fetch $url: $response->{status} $response->{reason}");
+        if ($response->{status} == 599) {
+            log_error("Network error - check proxy settings, DNS, and firewall rules");
+            if ($ENV{HTTP_PROXY} || $ENV{HTTPS_PROXY}) {
+                log_error("Using proxy: HTTP_PROXY=$ENV{HTTP_PROXY}, HTTPS_PROXY=$ENV{HTTPS_PROXY}");
+            } else {
+                log_error("No proxy configured. Set HTTP_PROXY/HTTPS_PROXY if needed");
+            }
+        }
+        return undef;
+    }
+
+    return $response->{content};
+}
+
+sub parse_docker_versions {
+    my ($html, $package_prefix) = @_;
+    my @versions;
+
+    # Extract all links matching the package pattern
+    while ($html =~ /<a[^>]+href="([^"]*${package_prefix}[^"]*\.deb)"/gi) {
+        my $filename = $1;
+        # Skip older version formats and focus on current format
+        next if $filename =~ /~ubuntu-\w+_amd64\.deb$/;  # Skip old format like "2.6.0~ubuntu-jammy"
+        push @versions, $filename;
+    }
+
+    # Sort by version (reverse to get latest first)
+    @versions = sort { version_compare($b, $a) } @versions;
+
+    return @versions ? $versions[0] : undef;
+}
+
+sub version_compare {
+    my ($a, $b) = @_;
+
+    # Extract version numbers from package names
+    my ($ver_a) = $a =~ /([0-9]+(?:\.[0-9]+)*(?:[~\-][^_]*)*)/;
+    my ($ver_b) = $b =~ /([0-9]+(?:\.[0-9]+)*(?:[~\-][^_]*)*)/;
+
+    return $ver_a cmp $ver_b;
+}
+
+sub get_latest_docker_versions {
+    my ($distro) = @_;  # 'jammy' or 'noble'
+    my $base_url = $distro eq 'jammy' ? $BASE_URL_JAMMY : $BASE_URL_NOBLE;
+    my %latest_versions;
+
+    log_info("Fetching latest Docker CE versions for $distro...");
+
+    my $html = fetch_url($base_url);
+    return undef unless $html;
+
+    # Get latest version for each package type
+    for my $package (@DOCKER_PACKAGES) {
+        my $latest = parse_docker_versions($html, $package);
+        if ($latest) {
+            $latest_versions{$package} = $latest;
+            log_info("Latest $package for $distro: $latest");
+        } else {
+            log_error("Could not find latest version for $package in $distro");
+        }
+    }
+
+    return \%latest_versions;
+}
+
+sub download_file {
+    my ($url, $dest_path) = @_;
+
+    if ($DRY_RUN) {
+        log_info("[DRY-RUN] Would download: $url -> $dest_path");
+        return 1;
+    }
+
+    log_info("Downloading: $url -> $dest_path");
+
+    my $http = create_http_client(600);  # 10 minute timeout for large files on bastion
+    my $response = $http->get($url);
+
+    if (!$response->{success}) {
+        log_error("Failed to download $url: $response->{status} $response->{reason}");
+        if ($response->{status} == 599) {
+            log_error("Network error during download - check connection stability and proxy settings");
+        }
+        return 0;
+    }
+
+    open my $fh, '>', $dest_path or do {
+        log_error("Cannot write to $dest_path: $!");
+        return 0;
+    };
+
+    print $fh $response->{content};
+    close $fh;
+
+    log_info("Downloaded: " . (-s $dest_path) . " bytes");
+    return 1;
+}
+
+sub update_docker_ce_blobs {
+    my $temp_dir = tempdir(CLEANUP => 1);
+    log_info("Using temporary directory: $temp_dir");
+
+    # Get current blobs to remove
+    my $current_blobs = `bosh blobs 2>/dev/null | grep '^docker-ce/'`;
+    my @current_docker_blobs = split /\n/, $current_blobs;
+
+    # Get latest versions for both distributions
+    my $jammy_versions = get_latest_docker_versions('jammy');
+    my $noble_versions = get_latest_docker_versions('noble');
+
+    return 0 unless ($jammy_versions && $noble_versions);
+
+    my @all_downloads;
+
+    # Prepare downloads for jammy
+    for my $package (@DOCKER_PACKAGES) {
+        next if $package eq 'containerd.io';  # This is common to both
+
+        if (my $filename = $jammy_versions->{$package}) {
+            my $url = $BASE_URL_JAMMY . $filename;
+            my $blob_path = "docker-ce/$filename";
+            push @all_downloads, { url => $url, blob_path => $blob_path, filename => $filename };
+        }
+    }
+
+    # Prepare downloads for noble
+    for my $package (@DOCKER_PACKAGES) {
+        next if $package eq 'containerd.io';  # This is common to both
+
+        if (my $filename = $noble_versions->{$package}) {
+            my $url = $BASE_URL_NOBLE . $filename;
+            my $blob_path = "docker-ce/$filename";
+            push @all_downloads, { url => $url, blob_path => $blob_path, filename => $filename };
+        }
+    }
+
+    # Add containerd.io (use jammy version for both)
+    if (my $containerd_filename = $jammy_versions->{'containerd.io'}) {
+        my $url = $BASE_URL_JAMMY . $containerd_filename;
+        my $blob_path = "docker-ce/$containerd_filename";
+        push @all_downloads, { url => $url, blob_path => $blob_path, filename => $containerd_filename };
+    }
+
+    # Remove old docker-ce blobs
+    for my $blob_line (@current_docker_blobs) {
+        if ($blob_line =~ /^(docker-ce\/[^\s]+)/) {
+            my $blob_name = $1;
+            run_command("bosh remove-blob '$blob_name'");
+        }
+    }
+
+    # Download and add new blobs
+    for my $download (@all_downloads) {
+        my $local_path = File::Spec->catfile($temp_dir, $download->{filename});
+
+        if (download_file($download->{url}, $local_path)) {
+            run_command("bosh add-blob '$local_path' '$download->{blob_path}'");
+        } else {
+            log_error("Failed to download $download->{filename}");
+            return 0;
+        }
+    }
+
+    log_info("Docker CE blobs updated successfully");
+    return 1;
+}
+
+# Main execution
+sub main {
+    my $action = '';
+
+    # Parse arguments
+    for my $arg (@ARGV) {
+        if ($arg eq '--dry-run') {
+            $DRY_RUN = 1;
+        } elsif ($arg =~ /^(-h|--help|help)$/) {
+            usage();
+        } elsif ($arg =~ /^(all|docker-ce)$/) {
+            $action = $arg;
+        } else {
+            log_error("Unknown argument: $arg");
+            usage();
+        }
+    }
+
+    if (!$action) {
+        usage();
+    }
+
+    if ($DRY_RUN) {
+        log_info("DRY-RUN MODE: No actual changes will be made");
+    }
+
+    # Ensure we're in a BOSH release directory
+    if (! -f 'config/final.yml') {
+        log_error("This doesn't appear to be a BOSH release directory");
+        log_error("Please run this script from the root of the victorialogs-boshrelease");
+        exit 1;
+    }
+
+    # Check if bosh command is available
+    if (system('which bosh >/dev/null 2>&1') != 0) {
+        log_error("bosh command not found in PATH");
+        exit 1;
+    }
+
+    my $success = 1;
+
+    if ($action eq 'all' || $action eq 'docker-ce') {
+        log_info("Updating Docker CE blobs...");
+        $success &= update_docker_ce_blobs();
+    }
+
+    if ($action ne 'all' && $action ne 'docker-ce') {
+        log_error("Invalid argument: $action");
+        usage();
+    }
+
+    if ($success) {
+        if ($DRY_RUN) {
+            log_info("Dry-run completed successfully!");
+            log_info("Run without --dry-run to actually update the blobs");
+        } else {
+            log_info("Blob update completed successfully!");
+            log_info("Run 'bosh blobs' to see the updated blobs");
+        }
+    } else {
+        log_error("Blob update failed!");
+        exit 1;
+    }
+}
+
+main();

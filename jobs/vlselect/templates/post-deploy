@@ -1,0 +1,5 @@
+#!/bin/bash
+set -e
+
+echo "[$(date '+%H:%M:%S')] VLSelect: Post-deploy tasks complete"
+exit 0

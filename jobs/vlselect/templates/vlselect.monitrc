@@ -1,0 +1,14 @@
+check process vlselect
+  with pidfile /var/vcap/sys/run/bpm/vlselect/vlselect.pid
+  start program "/var/vcap/jobs/bpm/bin/bpm start vlselect"
+  stop program "/var/vcap/jobs/bpm/bin/bpm stop vlselect"
+  group vcap
+
+  if failed
+    host 127.0.0.1
+    port <%= p('vlselect.port') %>
+    protocol http
+    request /health
+    with timeout 10 seconds
+    for 3 cycles
+  then restart

@@ -1,0 +1,56 @@
+---
+name: vlinsert
+packages:
+- docker-ce
+- jq
+
+templates:
+  bpm.yml: config/bpm.yml
+  pre-start: bin/pre-start
+  post-deploy: bin/post-deploy
+  post-start: bin/post-start
+  vlinsert: bin/vlinsert
+  vlinsert-health-check: bin/vlinsert-health-check
+  vlinsert.monitrc: monit
+
+consumes:
+- name: docker
+  type: docker
+- name: vlstorage
+  type: vlstorage
+
+provides:
+- name: vlinsert
+  type: vlinsert
+  properties:
+  - vlinsert.port
+  - vlinsert.api_endpoint
+
+properties:
+  vlinsert.port:
+    description: "Port for VictoriaLogs insert HTTP API"
+    default: 9481
+  vlinsert.api_endpoint:
+    description: "VictoriaLogs insert API endpoint"
+    default: "/insert"
+  vlinsert.container_image:
+    description: "Docker image for VictoriaLogs insert component"
+    default: "docker.io/victoriametrics/victoria-logs:v1.35.0"
+  vlinsert.memory_limit:
+    description: "Memory limit for VictoriaLogs insert container"
+    default: "2G"
+  vlinsert.log_level:
+    description: "Log level (INFO, WARN, ERROR, FATAL, PANIC)"
+    default: "INFO"
+  vlinsert.http_auth_username:
+    description: "HTTP basic auth username (optional)"
+    default: ""
+  vlinsert.http_auth_password:
+    description: "HTTP basic auth password (optional)"
+    default: ""
+  vlinsert.max_concurrent_inserts:
+    description: "Maximum number of concurrent insert requests"
+    default: 32
+  vlinsert.insert_rate_limit:
+    description: "Per-second limit on the number of inserted log entries (0 = unlimited)"
+    default: 0

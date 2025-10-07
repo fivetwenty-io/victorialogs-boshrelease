@@ -1,0 +1,68 @@
+---
+name: victorialogs
+
+releases:
+- name: bpm
+  version: latest
+- name: victorialogs
+  version: latest
+
+stemcells:
+- alias: default
+  os: ubuntu-jammy
+  version: latest
+
+update:
+  canaries: 1
+  max_in_flight: 1
+  serial: true
+  canary_watch_time: 30000-600000
+  update_watch_time: 30000-600000
+
+instance_groups:
+- name: victorialogs
+  instances: 1
+  azs: [z1]
+  networks:
+  - name: default
+  vm_type: default
+  stemcell: default
+  persistent_disk_type: large
+
+  jobs:
+  - name: bpm
+    release: bpm
+
+  - name: docker
+    release: victorialogs
+    properties:
+      docker:
+        storage_driver: overlay2
+        data_root: /var/vcap/data/docker
+        insecure_registries: []
+        registry_mirrors: []
+
+  - name: victorialogs
+    release: victorialogs
+    properties:
+      victorialogs:
+        port: 9428
+        container_image: "docker.io/victoriametrics/victoria-logs:v1.35.0"
+        storage_path: "/var/vcap/store/victorialogs/data"
+        retention_period: "30d"
+        memory_limit: "2G"
+        log_level: "INFO"
+        http_auth_username: ""
+        http_auth_password: ""
+        max_concurrent_inserts: 32
+        insert_rate_limit: 0
+
+  - name: monitoring
+    release: victorialogs
+    properties:
+      monitoring:
+        enabled: true
+        node_exporter_port: 9100
+        docker_exporter_port: 9323
+        scrape_interval: 30s
+        retention_days: 7

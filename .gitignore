@@ -1,0 +1,41 @@
+# BOSH Release
+config/dev.yml
+config/private.yml
+releases/**/*.tgz
+dev_releases/
+.blobs/
+blobs/
+.dev_builds/
+.final_builds/jobs/**/*.tgz
+.final_builds/packages/**/*.tgz
+.DS_Store
+*.swp
+*~
+*#
+#*
+
+# Source downloads
+src/
+
+# Temporary files
+tmp/
+temp/
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# Credentials
+config/credentials.yml
+config/secrets.yml
+
+# Logs
+*.log
+
+# Test artifacts
+spec/reports/
+coverage/*.tgz
+*.tar.gz
+*.zip
+*.tgz

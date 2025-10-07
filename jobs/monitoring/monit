@@ -1,0 +1,11 @@
+check process node-exporter
+  with pidfile /var/vcap/sys/run/bpm/monitoring/node-exporter.pid
+  start program "/var/vcap/jobs/bpm/bin/bpm start monitoring -p node-exporter"
+  stop program "/var/vcap/jobs/bpm/bin/bpm stop monitoring -p node-exporter"
+  group vcap
+
+check process docker-exporter
+  with pidfile /var/vcap/sys/run/bpm/monitoring/docker-exporter.pid
+  start program "/var/vcap/jobs/bpm/bin/bpm start monitoring -p docker-exporter"
+  stop program "/var/vcap/jobs/bpm/bin/bpm stop monitoring -p docker-exporter"
+  group vcap

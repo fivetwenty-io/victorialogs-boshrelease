@@ -1,0 +1,24 @@
+#!/bin/bash
+set -e
+
+export DOCKER_HOST=unix:///var/vcap/sys/run/docker/docker.sock
+CONTAINER_NAME="victorialogs"
+READY_DIR=/var/vcap/sys/run/ready
+
+set_ready() {
+    local service=$1
+    touch $READY_DIR/$service
+    echo "[$(date '+%H:%M:%S')] $service: Ready status set"
+}
+
+# Verify container is running
+if ! docker ps --filter "name=${CONTAINER_NAME}" --filter "status=running" | grep -q "$CONTAINER_NAME"; then
+    echo "[$(date '+%H:%M:%S')] ERROR: VictoriaLogs container is not running"
+    exit 1
+fi
+
+# Mark service as ready
+set_ready "victorialogs"
+
+echo "[$(date '+%H:%M:%S')] VictoriaLogs post-start complete"
+exit 0

@@ -1,0 +1,259 @@
+#!/bin/bash
+
+set -e
+
+# Include coordination helpers
+READY_DIR=/var/vcap/sys/run/ready
+mkdir -p $READY_DIR
+chmod 777 $READY_DIR
+
+mark_ready() {
+    local service=$1
+    mkdir -p $READY_DIR
+    touch $READY_DIR/$service
+    echo "[$(date '+%H:%M:%S')] $service: Marked as ready"
+}
+
+wait_for_ready() {
+    local service=$1
+    local timeout=${2:-60}
+    local waited=0
+
+    echo "[$(date '+%H:%M:%S')] Waiting for $service to be ready..."
+    while [ ! -f $READY_DIR/$service ]; do
+        if [ $waited -ge $((timeout * 2)) ]; then
+            echo "[$(date '+%H:%M:%S')] ERROR: $service timeout after ${timeout} seconds"
+            return 1
+        fi
+        sleep 0.5
+        waited=$((waited + 1))  # Count in 0.5s increments
+    done
+    local actual_time=$(perl -e "printf '%.1f', $waited/2")
+    echo "[$(date '+%H:%M:%S')] $service is ready (waited ${actual_time} seconds)"
+    return 0
+}
+
+clear_ready() {
+    local service=$1
+    rm -f $READY_DIR/$service
+    echo "[$(date '+%H:%M:%S')] $service: Cleared ready status"
+}
+
+# Clear ready status at start
+clear_ready "docker"
+
+DATA_DIR=/var/vcap/data/docker
+mkdir -p "$DATA_DIR"
+chown -R vcap:vcap "$DATA_DIR"
+chmod 755 "$DATA_DIR"
+
+# Retry function for dpkg/apt operations (reduced with coordination)
+retry_dpkg_operation() {
+    local cmd="$1"
+    local retries=2
+    local wait_time=2
+
+    for i in $(seq 1 $retries); do
+        echo "[$(date '+%H:%M:%S')] Attempt $i/$retries: $cmd"
+        if eval "$cmd" 2>&1; then
+            echo "[$(date '+%H:%M:%S')] Command succeeded on attempt $i"
+            return 0
+        else
+            local exit_code=$?
+            echo "[$(date '+%H:%M:%S')] Command failed on attempt $i with exit code: $exit_code"
+
+            # Debug apt issues
+            if [[ "$cmd" == *"apt"* ]]; then
+                echo "Checking apt source lists..."
+                ls -la /etc/apt/sources.list.d/ 2>&1 || true
+                for f in /etc/apt/sources.list.d/*.list; do
+                    if [ -f "$f" ]; then
+                        echo "Content of $f:"
+                        head -n 5 "$f" 2>&1 || true
+                    fi
+                done
+            fi
+
+            if [ $i -lt $retries ]; then
+                sleep $wait_time
+                wait_time=$((wait_time * 2))  # 2, 4 seconds
+                # Kill any hanging dpkg processes
+                pkill -9 dpkg || true
+                pkill -9 apt-get || true
+                # Remove lock files if they exist
+                rm -f /var/lib/dpkg/lock-frontend /var/lib/dpkg/lock /var/cache/apt/archives/lock || true
+                # Configure any unconfigured packages
+                dpkg --configure -a 2>&1 || true
+            fi
+        fi
+    done
+
+    echo "Command failed after $retries attempts: $cmd"
+    return 1
+}
+
+# Clean up disk space before installation
+echo "Starting Docker pre-start script..."
+echo "Cleaning up disk space before Docker installation..."
+
+# Move apt cache to /var/vcap/store to avoid filling root filesystem
+mkdir -p /var/vcap/store/apt-cache/archives/partial
+mkdir -p /var/vcap/store/apt-lists/partial
+
+# Configure apt to use /var/vcap/store for cache
+cat > /etc/apt/apt.conf.d/99vcap-cache <<EOF
+Dir::Cache "/var/vcap/store/apt-cache";
+Dir::Cache::Archives "archives";
+Dir::State::Lists "/var/vcap/store/apt-lists";
+EOF
+
+# Only purge apt caches the first time so subsequent deploys can reuse packages
+APT_CACHE_MARKER=/var/vcap/data/docker/.apt_cache_initialized
+if [ ! -f "$APT_CACHE_MARKER" ]; then
+    echo "Priming apt cache directories (one-time cleanup) ..."
+    apt-get clean
+    rm -rf /var/cache/man/*
+    rm -rf /var/lib/apt/lists/*
+    rm -rf /tmp/*
+    journalctl --vacuum-time=1d 2>/dev/null || true
+    touch "$APT_CACHE_MARKER"
+else
+    echo "Reusing existing apt caches under /var/vcap/store/apt-cache"
+fi
+
+# Remove any corrupt/old repository files
+echo "Cleaning up old repository files..."
+# Find and remove any source list files containing HTML
+for f in /etc/apt/sources.list.d/*.list; do
+    if [ -f "$f" ]; then
+        if head -n 1 "$f" 2>/dev/null | grep -q "<!doctype\|<html\|404 Not Found"; then
+            echo "Removing corrupt source list: $f"
+            rm -f "$f"
+        fi
+    fi
+done
+
+# Setup directories
+mkdir -p /var/vcap/store/docker-data
+mkdir -p /var/vcap/sys/run/docker
+mkdir -p /var/vcap/sys/log/docker
+
+# Install Docker CE packages
+PACKAGE_DIR="/var/vcap/packages/docker-ce"
+
+# Detect Ubuntu version
+if [ -f /etc/os-release ]; then
+    . /etc/os-release
+    if [[ "$VERSION_ID" == "24.04" ]]; then
+        UBUNTU_VERSION="noble"
+    else
+        UBUNTU_VERSION="jammy"
+    fi
+else
+    UBUNTU_VERSION="jammy"
+fi
+
+# Install containerd.io first
+retry_dpkg_operation "dpkg -i \"${PACKAGE_DIR}/debs/containerd.io_1.7.27-1_amd64.deb\""
+
+# Install Docker CE packages
+if [[ "$UBUNTU_VERSION" == "noble" ]]; then
+    retry_dpkg_operation "dpkg -i \"${PACKAGE_DIR}/debs/noble/docker-ce-cli_28.4.0-1~ubuntu.24.04~noble_amd64.deb\""
+    retry_dpkg_operation "dpkg -i \"${PACKAGE_DIR}/debs/noble/docker-ce_28.4.0-1~ubuntu.24.04~noble_amd64.deb\""
+    retry_dpkg_operation "dpkg -i \"${PACKAGE_DIR}/debs/noble/docker-buildx-plugin_0.28.0-0~ubuntu.24.04~noble_amd64.deb\""
+    retry_dpkg_operation "dpkg -i \"${PACKAGE_DIR}/debs/noble/docker-compose-plugin_2.39.4-0~ubuntu.24.04~noble_amd64.deb\""
+else
+    retry_dpkg_operation "dpkg -i \"${PACKAGE_DIR}/debs/jammy/docker-ce-cli_28.4.0-1~ubuntu.22.04~jammy_amd64.deb\""
+    retry_dpkg_operation "dpkg -i \"${PACKAGE_DIR}/debs/jammy/docker-ce_28.4.0-1~ubuntu.22.04~jammy_amd64.deb\""
+    retry_dpkg_operation "dpkg -i \"${PACKAGE_DIR}/debs/jammy/docker-buildx-plugin_0.28.0-0~ubuntu.22.04~jammy_amd64.deb\""
+    retry_dpkg_operation "dpkg -i \"${PACKAGE_DIR}/debs/jammy/docker-compose-plugin_2.39.4-0~ubuntu.22.04~jammy_amd64.deb\""
+fi
+
+# Fix any broken dependencies (make it optional - don't fail the whole script)
+echo "Attempting to fix any broken dependencies..."
+apt-get install -f -y 2>&1 || echo "Warning: apt-get install -f failed, but continuing..."
+
+# Disable and stop system docker service (we use monit to manage dockerd)
+echo "[$(date '+%H:%M:%S')] Disabling system Docker service..."
+systemctl stop docker.service 2>/dev/null || true
+systemctl disable docker.service 2>/dev/null || true
+systemctl stop docker.socket 2>/dev/null || true
+systemctl disable docker.socket 2>/dev/null || true
+
+# Ensure containerd is properly configured and running
+echo "[$(date '+%H:%M:%S')] Configuring and starting containerd..."
+
+# Create containerd configuration directory
+mkdir -p /etc/containerd
+
+# Generate default config if it doesn't exist
+if [ ! -f /etc/containerd/config.toml ]; then
+    echo "[$(date '+%H:%M:%S')] Generating containerd default configuration..."
+    containerd config default > /etc/containerd/config.toml 2>/dev/null || {
+        echo "[$(date '+%H:%M:%S')] WARNING: Failed to generate containerd config, using minimal config"
+        cat > /etc/containerd/config.toml <<'EOF'
+version = 2
+root = "/var/lib/containerd"
+state = "/run/containerd"
+oom_score = 0
+
+[grpc]
+  max_recv_message_size = 16777216
+  max_send_message_size = 16777216
+
+[plugins]
+  [plugins."io.containerd.grpc.v1.cri"]
+    sandbox_image = "registry.k8s.io/pause:3.8"
+EOF
+    }
+fi
+
+# Enable and start containerd
+systemctl enable containerd.service 2>/dev/null || true
+
+# Start containerd with retries
+for attempt in 1 2 3; do
+    echo "[$(date '+%H:%M:%S')] Starting containerd (attempt $attempt/3)..."
+    if systemctl start containerd.service 2>&1; then
+        echo "[$(date '+%H:%M:%S')] containerd started successfully"
+        break
+    else
+        echo "[$(date '+%H:%M:%S')] Failed to start containerd on attempt $attempt"
+        if [ $attempt -lt 3 ]; then
+            # Try to fix common issues
+            rm -f /run/containerd/containerd.sock 2>/dev/null || true
+            pkill -9 containerd 2>/dev/null || true
+            sleep 2
+        else
+            echo "[$(date '+%H:%M:%S')] ERROR: Failed to start containerd after 3 attempts"
+            systemctl status containerd.service 2>&1 || true
+            journalctl -u containerd.service --no-pager -n 20 2>&1 || true
+        fi
+    fi
+done
+
+# Verify containerd is running
+if systemctl is-active --quiet containerd.service; then
+    echo "[$(date '+%H:%M:%S')] containerd is active and running"
+else
+    echo "[$(date '+%H:%M:%S')] WARNING: containerd is not running, Docker may fail to start"
+fi
+
+# Setup Docker socket directory
+mkdir -p /var/vcap/sys/run/docker
+mkdir -p /var/run/docker
+
+# Remove any existing socket or directory (from previous runs)
+rm -rf /var/vcap/sys/run/docker/docker.sock
+rm -rf /var/run/docker.sock
+
+# Symbolic link will be created after dockerd starts and creates the socket
+
+# Set appropriate permissions
+chown -R vcap:vcap /var/vcap/store/docker-data
+chown -R vcap:vcap /var/vcap/sys/run/docker
+chown -R vcap:vcap /var/vcap/sys/log/docker
+chmod 755 /var/vcap/sys/run/docker
+
+echo "Docker pre-start completed successfully"
+exit 0

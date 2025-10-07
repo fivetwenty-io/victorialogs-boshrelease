@@ -1,0 +1,6 @@
+---
+name: victorialogs
+blobstore:
+  provider: local
+  options:
+    blobstore_path: /tmp/victorialogs-blobs

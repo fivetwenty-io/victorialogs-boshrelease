@@ -1,0 +1,30 @@
+docker-ce/containerd.io_1.7.27-1_amd64.deb:
+  size: 30523196
+  sha: sha256:6541f45263da86d81dad94abcbb7949e56f2c7d41ec73621d78c542291ead83a
+docker-ce/docker-buildx-plugin_0.28.0-0~ubuntu.22.04~jammy_amd64.deb:
+  size: 15904104
+  sha: sha256:aa8d814d7e132a6fdd8f030f4e06fd2bf4aca2cc57c14ad08f43705e37230f5c
+docker-ce/docker-buildx-plugin_0.28.0-0~ubuntu.24.04~noble_amd64.deb:
+  size: 15904052
+  sha: sha256:13a6f38b4aa45058711953accb2af1ec999b91fa1007aedf22a58f98900688c5
+docker-ce/docker-ce-cli_28.4.0-1~ubuntu.22.04~jammy_amd64.deb:
+  size: 16466680
+  sha: sha256:7dad219d0e2f25912621f73b8a03b4af321f293961d0e5c1ddc321f408571ca8
+docker-ce/docker-ce-cli_28.4.0-1~ubuntu.24.04~noble_amd64.deb:
+  size: 16454380
+  sha: sha256:d673fae8649ff17672bff1fb8d310c4ce83e0e16bbf408d9b4b79b2fcc3a3872
+docker-ce/docker-ce_28.4.0-1~ubuntu.22.04~jammy_amd64.deb:
+  size: 19692780
+  sha: sha256:7b1830b5629ada9bd3f7e9fa250b13304221765e7bfd4c9d6ffa541f4b873bc7
+docker-ce/docker-ce_28.4.0-1~ubuntu.24.04~noble_amd64.deb:
+  size: 19684084
+  sha: sha256:17cb80b4abc43eb5aa79a1d958a41627515bb060c27f59d72dd2cfd4bddc3bca
+docker-ce/docker-compose-plugin_2.39.4-0~ubuntu.22.04~jammy_amd64.deb:
+  size: 14204952
+  sha: sha256:743d365ebfa1e3db26dcd2c7e9b1755e46aeb0f5019297cc47d3d791ce9b3c47
+docker-ce/docker-compose-plugin_2.39.4-0~ubuntu.24.04~noble_amd64.deb:
+  size: 14205220
+  sha: sha256:d6387870eabdc5b8a68835a8837c6febdd9014e4ad50dfefcb1765d4e9f63945
+jq/jq-linux64:
+  size: 2319424
+  sha: sha256:5942c9b0934e510ee61eb3e30273f1b3fe2590df93933a93d7c58b81d19c8ff5

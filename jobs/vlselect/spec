@@ -1,0 +1,53 @@
+---
+name: vlselect
+packages:
+- docker-ce
+- jq
+
+templates:
+  bpm.yml: config/bpm.yml
+  pre-start: bin/pre-start
+  post-deploy: bin/post-deploy
+  post-start: bin/post-start
+  vlselect: bin/vlselect
+  vlselect-health-check: bin/vlselect-health-check
+  vlselect.monitrc: monit
+
+consumes:
+- name: docker
+  type: docker
+- name: vlstorage
+  type: vlstorage
+
+provides:
+- name: vlselect
+  type: vlselect
+  properties:
+  - vlselect.port
+  - vlselect.api_endpoint
+
+properties:
+  vlselect.port:
+    description: "Port for VictoriaLogs select HTTP API"
+    default: 9471
+  vlselect.api_endpoint:
+    description: "VictoriaLogs select API endpoint"
+    default: "/select"
+  vlselect.container_image:
+    description: "Docker image for VictoriaLogs select component"
+    default: "docker.io/victoriametrics/victoria-logs:v1.35.0"
+  vlselect.memory_limit:
+    description: "Memory limit for VictoriaLogs select container"
+    default: "2G"
+  vlselect.log_level:
+    description: "Log level (INFO, WARN, ERROR, FATAL, PANIC)"
+    default: "INFO"
+  vlselect.http_auth_username:
+    description: "HTTP basic auth username (optional)"
+    default: ""
+  vlselect.http_auth_password:
+    description: "HTTP basic auth password (optional)"
+    default: ""
+  vlselect.max_concurrent_requests:
+    description: "Maximum number of concurrent select requests"
+    default: 32

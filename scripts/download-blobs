@@ -1,0 +1,17 @@
+#!/bin/bash
+set -e
+
+echo "Downloading blobs for VictoriaLogs BOSH Release..."
+
+# Create source directories
+mkdir -p src/docker-ce
+
+# Note: VictoriaLogs uses Docker images, no additional blobs needed
+echo "Docker CE packages are managed via the docker-ce package"
+echo "VictoriaLogs runs as a Docker container - no additional blobs required"
+
+echo -e "\nBlobs download complete!\n"
+echo "Next steps:"
+echo "1. Run: make dev-release"
+echo "2. Run: bosh upload-release victorialogs-boshrelease.tgz"
+echo "3. Run: bosh -d victorialogs deploy manifests/victorialogs.yml"

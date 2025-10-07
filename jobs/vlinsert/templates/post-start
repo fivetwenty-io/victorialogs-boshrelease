@@ -1,0 +1,31 @@
+#!/bin/bash
+set -e
+
+PORT=<%= p('vlinsert.port') %>
+READY_DIR=/var/vcap/sys/run/ready
+READY_FILE=$READY_DIR/vlinsert
+
+set_ready() {
+    local service=$1
+    touch $READY_DIR/$service
+    echo "[$(date '+%H:%M:%S')] $service: Ready"
+}
+
+echo "[$(date '+%H:%M:%S')] VLInsert: Starting post-start health check..."
+
+# Wait for VLInsert to be ready
+max_wait=60
+elapsed=0
+
+while [ $elapsed -lt $max_wait ]; do
+    if curl -sf "http://localhost:${PORT}/health" >/dev/null 2>&1; then
+        echo "[$(date '+%H:%M:%S')] VLInsert health check passed"
+        set_ready "vlinsert"
+        exit 0
+    fi
+    sleep 1
+    elapsed=$((elapsed + 1))
+done
+
+echo "[$(date '+%H:%M:%S')] ERROR: VLInsert health check failed after ${max_wait}s"
+exit 1

@@ -1,0 +1,44 @@
+---
+name: monitoring
+packages: []
+
+templates:
+  bpm.yml: config/bpm.yml
+  pre-start: bin/pre-start
+  node-exporter: bin/node-exporter
+  docker-exporter: bin/docker-exporter
+  collect-metrics: bin/collect-metrics
+  node-exporter.monitrc: monit.d/node-exporter
+  docker-exporter.monitrc: monit.d/docker-exporter
+
+consumes:
+- name: docker
+  type: docker
+  optional: true
+- name: victorialogs
+  type: victorialogs
+  optional: true
+
+provides:
+- name: metrics
+  type: prometheus
+  properties:
+  - monitoring.node_exporter_port
+  - monitoring.docker_exporter_port
+
+properties:
+  monitoring.enabled:
+    description: "Enable monitoring"
+    default: true
+  monitoring.node_exporter_port:
+    description: "Port for node exporter"
+    default: 9100
+  monitoring.docker_exporter_port:
+    description: "Port for Docker exporter"
+    default: 9323
+  monitoring.scrape_interval:
+    description: "Metrics scrape interval"
+    default: "30s"
+  monitoring.retention_days:
+    description: "Metrics retention period in days"
+    default: 7

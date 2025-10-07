@@ -1,0 +1,27 @@
+#!/bin/bash
+set -e
+
+# Include coordination helpers
+READY_DIR=/var/vcap/sys/run/ready
+mkdir -p $READY_DIR
+chmod 777 $READY_DIR
+
+clear_ready() {
+    local service=$1
+    rm -f $READY_DIR/$service
+    echo "[$(date '+%H:%M:%S')] $service: Cleared ready status"
+}
+
+# Clear ready status at start
+clear_ready "victorialogs"
+
+export DOCKER_HOST=unix:///var/vcap/sys/run/docker/docker.sock
+
+echo "VictoriaLogs pre-start: preparing runtime environment..."
+
+# Create VictoriaLogs data directory
+echo "Creating VictoriaLogs data directory"
+mkdir -p <%= p('victorialogs.storage_path') %>
+chown -R vcap:vcap <%= p('victorialogs.storage_path') %>
+
+echo "VictoriaLogs pre-start configuration complete"

@@ -1,0 +1,23 @@
+---
+processes:
+  - name: vlinsert
+    executable: /var/vcap/jobs/vlinsert/bin/vlinsert
+    persistent_disk: false
+    ephemeral_disk: false
+
+    limits:
+      open_files: 65536
+
+    env:
+      DOCKER_HOST: unix:///var/vcap/sys/run/docker/docker.sock
+      VLINSERT_PORT: <%= p('vlinsert.port') %>
+      VLINSERT_LOG_LEVEL: <%= p('vlinsert.log_level') %>
+
+    unsafe:
+      privileged: true
+
+    additional_volumes:
+      - path: /var/vcap/sys/run/docker/docker.sock
+        writable: true
+      - path: /var/vcap/sys/run/ready
+        writable: true

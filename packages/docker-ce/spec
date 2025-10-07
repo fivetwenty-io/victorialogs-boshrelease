@@ -1,0 +1,13 @@
+---
+name: docker-ce
+dependencies: []
+files:
+- docker-ce/containerd.io_1.7.27-1_amd64.deb
+- docker-ce/docker-ce_28.4.0-1~ubuntu.22.04~jammy_amd64.deb
+- docker-ce/docker-ce-cli_28.4.0-1~ubuntu.22.04~jammy_amd64.deb
+- docker-ce/docker-buildx-plugin_0.28.0-0~ubuntu.22.04~jammy_amd64.deb
+- docker-ce/docker-compose-plugin_2.39.4-0~ubuntu.22.04~jammy_amd64.deb
+- docker-ce/docker-ce_28.4.0-1~ubuntu.24.04~noble_amd64.deb
+- docker-ce/docker-ce-cli_28.4.0-1~ubuntu.24.04~noble_amd64.deb
+- docker-ce/docker-buildx-plugin_0.28.0-0~ubuntu.24.04~noble_amd64.deb
+- docker-ce/docker-compose-plugin_2.39.4-0~ubuntu.24.04~noble_amd64.deb

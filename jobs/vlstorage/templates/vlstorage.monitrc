@@ -1,0 +1,14 @@
+check process vlstorage
+  with pidfile /var/vcap/sys/run/bpm/vlstorage/vlstorage.pid
+  start program "/var/vcap/jobs/bpm/bin/bpm start vlstorage"
+  stop program "/var/vcap/jobs/bpm/bin/bpm stop vlstorage"
+  group vcap
+
+  if failed
+    host 127.0.0.1
+    port <%= p('vlstorage.port') %>
+    protocol http
+    request /health
+    with timeout 10 seconds
+    for 3 cycles
+  then restart

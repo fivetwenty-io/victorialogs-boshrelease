@@ -1,0 +1,43 @@
+#!/bin/bash
+set -e
+
+# Include coordination helpers
+READY_DIR=/var/vcap/sys/run/ready
+mkdir -p "$READY_DIR"
+# Ensure the directory is writable by all services
+chmod 777 "$READY_DIR"
+
+DATA_DIR=/var/vcap/data/monitoring
+TMP_DIR="$DATA_DIR/tmp"
+RUNTIME_DIR="$DATA_DIR/run"
+mkdir -p "$TMP_DIR" "$RUNTIME_DIR"
+chown -R vcap:vcap "$DATA_DIR"
+chmod 775 "$DATA_DIR" "$TMP_DIR" "$RUNTIME_DIR"
+
+clear_ready() {
+    local service=$1
+    rm -f $READY_DIR/$service
+    echo "[$(date '+%H:%M:%S')] $service: Cleared ready status"
+}
+
+# Clear ready status at start
+clear_ready "monitoring"
+
+export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+export DOCKER_HOST=unix:///var/vcap/sys/run/docker/docker.sock
+
+<% if p('monitoring.enabled') -%>
+echo "Setting up monitoring exporters..."
+
+# Create metrics directory
+mkdir -p /var/vcap/data/monitoring
+mkdir -p /var/vcap/data/monitoring/tmp
+chown -R vcap:vcap /var/vcap/data/monitoring
+
+# Docker operations will be handled in the start scripts when Docker is ready
+echo "Monitoring directories prepared"
+
+echo "Monitoring setup complete"
+<% else -%>
+echo "Monitoring is disabled"
+<% end -%>

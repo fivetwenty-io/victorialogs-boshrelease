@@ -1,0 +1,17 @@
+#!/bin/bash
+set -e
+
+PORT=<%= p('victorialogs.port') %>
+
+echo "============================================="
+echo "VictoriaLogs Deployment Complete"
+echo "============================================="
+echo ""
+echo "VictoriaLogs API: http://localhost:${PORT}"
+echo "Health endpoint: http://localhost:${PORT}/health"
+echo ""
+echo "Insert logs (JSON): POST http://localhost:${PORT}/insert/jsonline"
+echo "Query logs: GET http://localhost:${PORT}/select/logsql/query?query=<query>"
+echo ""
+echo "Documentation: https://docs.victoriametrics.com/victorialogs"
+echo "============================================="

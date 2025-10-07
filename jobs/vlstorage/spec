@@ -1,0 +1,54 @@
+---
+name: vlstorage
+packages:
+- docker-ce
+- jq
+
+templates:
+  bpm.yml: config/bpm.yml
+  pre-start: bin/pre-start
+  post-deploy: bin/post-deploy
+  post-start: bin/post-start
+  vlstorage: bin/vlstorage
+  vlstorage-health-check: bin/vlstorage-health-check
+  vlstorage.monitrc: monit
+
+consumes:
+- name: docker
+  type: docker
+
+provides:
+- name: vlstorage
+  type: vlstorage
+  properties:
+  - vlstorage.port
+  - vlstorage.internal_port
+
+properties:
+  vlstorage.port:
+    description: "Port for VictoriaLogs storage HTTP API"
+    default: 9491
+  vlstorage.internal_port:
+    description: "Internal port for vlinsert/vlselect communication"
+    default: 9491
+  vlstorage.container_image:
+    description: "Docker image for VictoriaLogs storage component"
+    default: "docker.io/victoriametrics/victoria-logs:v1.35.0"
+  vlstorage.storage_path:
+    description: "Path for persistent storage of logs"
+    default: "/var/vcap/store/vlstorage/data"
+  vlstorage.retention_period:
+    description: "Log retention period (e.g., 7d, 30d, 1y)"
+    default: "7d"
+  vlstorage.memory_limit:
+    description: "Memory limit for VictoriaLogs storage container"
+    default: "4G"
+  vlstorage.log_level:
+    description: "Log level (INFO, WARN, ERROR, FATAL, PANIC)"
+    default: "INFO"
+  vlstorage.http_auth_username:
+    description: "HTTP basic auth username (optional)"
+    default: ""
+  vlstorage.http_auth_password:
+    description: "HTTP basic auth password (optional)"
+    default: ""

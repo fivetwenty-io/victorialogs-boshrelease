@@ -1,0 +1,75 @@
+#!/bin/bash
+set -e
+
+# Include coordination helpers
+READY_DIR=/var/vcap/sys/run/ready
+# Directory should be created by pre-start script with proper permissions
+DATA_DIR=/var/vcap/data/monitoring
+TMP_DIR=${TMPDIR:-$DATA_DIR/tmp}
+export TMPDIR=$TMP_DIR
+
+wait_for_ready() {
+    local service=$1
+    local timeout=${2:-60}
+    local waited=0
+
+    echo "[$(date '+%H:%M:%S')] Waiting for $service to be ready..."
+    while [ ! -f $READY_DIR/$service ]; do
+        if [ $waited -ge $((timeout * 2)) ]; then
+            echo "[$(date '+%H:%M:%S')] ERROR: $service timeout after ${timeout} seconds"
+            return 1
+        fi
+        sleep 0.5
+        waited=$((waited + 1))  # Count in 0.5s increments
+    done
+    local actual_time=$(perl -e "printf '%.1f', $waited/2")
+    echo "[$(date '+%H:%M:%S')] $service is ready (waited ${actual_time} seconds)"
+    return 0
+}
+
+mark_ready() {
+    local service=$1
+    touch $READY_DIR/$service
+    echo "[$(date '+%H:%M:%S')] $service: Marked as ready"
+}
+
+export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+export DOCKER_HOST=unix:///var/vcap/sys/run/docker/docker.sock
+
+<% if p('monitoring.enabled') %>
+# Wait for Docker to be ready by checking socket directly
+echo "[$(date '+%H:%M:%S')] Waiting for Docker to be ready..."
+for i in {1..60}; do
+    if docker version >/dev/null 2>&1; then
+        echo "[$(date '+%H:%M:%S')] Docker is ready (attempt $i/60)"
+        break
+    fi
+    if [ $i -eq 60 ]; then
+        echo "[$(date '+%H:%M:%S')] ERROR: Docker timeout after 5 minutes"
+        exit 1
+    fi
+    sleep 5
+done
+
+# Remove existing container if it exists
+docker rm -f node-exporter 2>/dev/null || true
+
+# Mark monitoring as ready (node-exporter is the primary monitoring component)
+mark_ready "monitoring"
+
+# Run node exporter
+exec docker run \
+  --name node-exporter \
+  --net="host" \
+  --pid="host" \
+  -v "/:/host:ro,rslave" \
+  -v "/run:/run:ro" \
+  -p <%= p('monitoring.node_exporter_port') %>:9100 \
+  prom/node-exporter:latest \
+  --path.rootfs=/host \
+  --collector.filesystem.mount-points-exclude="^/(sys|proc|dev|host|etc)($|/)" \
+  --collector.netclass.ignored-devices="^(veth.*|docker.*|br-.*)$"
+<% else %>
+echo "Node exporter is disabled"
+sleep infinity
+<% end %>

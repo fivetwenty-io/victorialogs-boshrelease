@@ -1,0 +1,14 @@
+check process vlinsert
+  with pidfile /var/vcap/sys/run/bpm/vlinsert/vlinsert.pid
+  start program "/var/vcap/jobs/bpm/bin/bpm start vlinsert"
+  stop program "/var/vcap/jobs/bpm/bin/bpm stop vlinsert"
+  group vcap
+
+  if failed
+    host 127.0.0.1
+    port <%= p('vlinsert.port') %>
+    protocol http
+    request /health
+    with timeout 10 seconds
+    for 3 cycles
+  then restart

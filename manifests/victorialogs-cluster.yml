@@ -1,0 +1,157 @@
+---
+name: victorialogs-cluster
+
+releases:
+- name: bpm
+  version: latest
+- name: victorialogs
+  version: latest
+
+stemcells:
+- alias: default
+  os: ubuntu-jammy
+  version: latest
+
+update:
+  canaries: 1
+  max_in_flight: 1
+  serial: true
+  canary_watch_time: 30000-600000
+  update_watch_time: 30000-600000
+
+instance_groups:
+# VLStorage - Persistent storage nodes (minimum 2 for cluster)
+- name: vlstorage
+  instances: 2
+  azs: [z1, z2]
+  networks:
+  - name: default
+  vm_type: default
+  stemcell: default
+  persistent_disk_type: large
+
+  jobs:
+  - name: bpm
+    release: bpm
+
+  - name: docker
+    release: victorialogs
+    properties:
+      docker:
+        storage_driver: overlay2
+        data_root: /var/vcap/data/docker
+        insecure_registries: []
+        registry_mirrors: []
+
+  - name: vlstorage
+    release: victorialogs
+    properties:
+      vlstorage:
+        port: 9491
+        internal_port: 9491
+        container_image: "docker.io/victoriametrics/victoria-logs:v1.35.0"
+        storage_path: "/var/vcap/store/vlstorage/data"
+        retention_period: "7d"
+        memory_limit: "4G"
+        log_level: "INFO"
+        http_auth_username: ""
+        http_auth_password: ""
+
+  - name: monitoring
+    release: victorialogs
+    properties:
+      monitoring:
+        enabled: true
+        node_exporter_port: 9100
+        docker_exporter_port: 9323
+        scrape_interval: 30s
+        retention_days: 7
+
+# VLInsert - Log ingestion nodes (minimum 2 for HA)
+- name: vlinsert
+  instances: 2
+  azs: [z1, z2]
+  networks:
+  - name: default
+  vm_type: default
+  stemcell: default
+
+  jobs:
+  - name: bpm
+    release: bpm
+
+  - name: docker
+    release: victorialogs
+    properties:
+      docker:
+        storage_driver: overlay2
+        data_root: /var/vcap/data/docker
+        insecure_registries: []
+        registry_mirrors: []
+
+  - name: vlinsert
+    release: victorialogs
+    properties:
+      vlinsert:
+        port: 9481
+        container_image: "docker.io/victoriametrics/victoria-logs:v1.35.0"
+        memory_limit: "2G"
+        log_level: "INFO"
+        http_auth_username: ""
+        http_auth_password: ""
+        max_concurrent_inserts: 32
+        insert_rate_limit: 0
+
+  - name: monitoring
+    release: victorialogs
+    properties:
+      monitoring:
+        enabled: true
+        node_exporter_port: 9100
+        docker_exporter_port: 9323
+        scrape_interval: 30s
+        retention_days: 7
+
+# VLSelect - Query processing nodes (minimum 2 for HA)
+- name: vlselect
+  instances: 2
+  azs: [z1, z2]
+  networks:
+  - name: default
+  vm_type: default
+  stemcell: default
+
+  jobs:
+  - name: bpm
+    release: bpm
+
+  - name: docker
+    release: victorialogs
+    properties:
+      docker:
+        storage_driver: overlay2
+        data_root: /var/vcap/data/docker
+        insecure_registries: []
+        registry_mirrors: []
+
+  - name: vlselect
+    release: victorialogs
+    properties:
+      vlselect:
+        port: 9471
+        container_image: "docker.io/victoriametrics/victoria-logs:v1.35.0"
+        memory_limit: "2G"
+        log_level: "INFO"
+        http_auth_username: ""
+        http_auth_password: ""
+        max_concurrent_requests: 32
+
+  - name: monitoring
+    release: victorialogs
+    properties:
+      monitoring:
+        enabled: true
+        node_exporter_port: 9100
+        docker_exporter_port: 9323
+        scrape_interval: 30s
+        retention_days: 7

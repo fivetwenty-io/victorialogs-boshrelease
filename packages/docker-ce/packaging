@@ -1,0 +1,115 @@
+#!/bin/bash
+set -e -x
+
+# Docker CE packaging script for .deb packages (supports Ubuntu Jammy and Noble)
+echo "Copying Docker CE .deb packages to install target"
+mkdir -p "${BOSH_INSTALL_TARGET}/debs/jammy"
+mkdir -p "${BOSH_INSTALL_TARGET}/debs/noble"
+
+# Copy common packages
+cp docker-ce/containerd.io_1.7.27-1_amd64.deb "${BOSH_INSTALL_TARGET}/debs/"
+
+# Copy Jammy packages
+cp docker-ce/docker-ce_28.4.0-1~ubuntu.22.04~jammy_amd64.deb "${BOSH_INSTALL_TARGET}/debs/jammy/"
+cp docker-ce/docker-ce-cli_28.4.0-1~ubuntu.22.04~jammy_amd64.deb "${BOSH_INSTALL_TARGET}/debs/jammy/"
+cp docker-ce/docker-buildx-plugin_0.28.0-0~ubuntu.22.04~jammy_amd64.deb "${BOSH_INSTALL_TARGET}/debs/jammy/"
+cp docker-ce/docker-compose-plugin_2.39.4-0~ubuntu.22.04~jammy_amd64.deb "${BOSH_INSTALL_TARGET}/debs/jammy/"
+
+# Copy Noble packages
+cp docker-ce/docker-ce_28.4.0-1~ubuntu.24.04~noble_amd64.deb "${BOSH_INSTALL_TARGET}/debs/noble/"
+cp docker-ce/docker-ce-cli_28.4.0-1~ubuntu.24.04~noble_amd64.deb "${BOSH_INSTALL_TARGET}/debs/noble/"
+cp docker-ce/docker-buildx-plugin_0.28.0-0~ubuntu.24.04~noble_amd64.deb "${BOSH_INSTALL_TARGET}/debs/noble/"
+cp docker-ce/docker-compose-plugin_2.39.4-0~ubuntu.24.04~noble_amd64.deb "${BOSH_INSTALL_TARGET}/debs/noble/"
+
+echo "Creating offline Docker installation script with Ubuntu version detection"
+cat >"${BOSH_INSTALL_TARGET}/install-docker" <<'EOF'
+#!/bin/bash
+set -e
+
+echo "Installing Docker CE packages offline"
+PACKAGE_DIR="/var/vcap/packages/docker-ce/debs"
+
+# Detect Ubuntu version
+if [ -f /etc/os-release ]; then
+    . /etc/os-release
+    UBUNTU_CODENAME="${UBUNTU_CODENAME:-}"
+    VERSION_ID="${VERSION_ID:-}"
+else
+    echo "Cannot detect Ubuntu version, /etc/os-release not found"
+    exit 1
+fi
+
+# Determine package subdirectory
+if [[ "$UBUNTU_CODENAME" == "jammy" || "$VERSION_ID" == "22.04" ]]; then
+    DISTRO_DIR="jammy"
+    DISTRO_SUFFIX="~ubuntu.22.04~jammy"
+    echo "Detected Ubuntu 22.04 (Jammy)"
+elif [[ "$UBUNTU_CODENAME" == "noble" || "$VERSION_ID" == "24.04" ]]; then
+    DISTRO_DIR="noble"
+    DISTRO_SUFFIX="~ubuntu.24.04~noble"
+    echo "Detected Ubuntu 24.04 (Noble)"
+else
+    echo "Unsupported Ubuntu version: $VERSION_ID ($UBUNTU_CODENAME)"
+    echo "Supported versions: 22.04 (Jammy), 24.04 (Noble)"
+    exit 1
+fi
+
+echo "Using packages from: $PACKAGE_DIR/$DISTRO_DIR/"
+
+# Install packages in the correct order to handle dependencies
+dpkg -i \
+  "$PACKAGE_DIR/containerd.io_1.7.27-1_amd64.deb" \
+  "$PACKAGE_DIR/$DISTRO_DIR/docker-ce-cli_28.4.0-1${DISTRO_SUFFIX}_amd64.deb" \
+  "$PACKAGE_DIR/$DISTRO_DIR/docker-ce_28.4.0-1${DISTRO_SUFFIX}_amd64.deb" \
+  "$PACKAGE_DIR/$DISTRO_DIR/docker-buildx-plugin_0.28.0-0${DISTRO_SUFFIX}_amd64.deb" \
+  "$PACKAGE_DIR/$DISTRO_DIR/docker-compose-plugin_2.39.4-0${DISTRO_SUFFIX}_amd64.deb"
+
+echo "Creating docker group"
+groupadd -f docker
+
+echo "Adding vcap user to docker group"
+usermod -aG docker vcap
+
+echo "Creating docker directories"
+mkdir -p /etc/docker
+
+echo "Docker CE 28.4.0 installation complete for Ubuntu $VERSION_ID"
+echo "Verify installation with: sudo systemctl status docker"
+EOF
+
+chmod +x "${BOSH_INSTALL_TARGET}/install-docker"
+
+echo "Creating Docker verification script"
+cat >"${BOSH_INSTALL_TARGET}/verify-docker" <<'EOF'
+#!/bin/bash
+set -e
+
+echo "Docker CE Installation Verification"
+echo "=================================="
+
+# Check if Docker packages are installed
+echo "Checking installed Docker packages:"
+dpkg -l | grep docker-ce || echo "No docker-ce packages found"
+dpkg -l | grep containerd || echo "No containerd packages found"
+
+echo ""
+echo "Docker daemon status:"
+systemctl is-active docker || echo "Docker service is not active"
+
+echo ""
+echo "Docker version information:"
+docker --version 2>/dev/null || echo "Docker CLI not available"
+docker info --format "Server Version: {{.ServerVersion}}" 2>/dev/null || echo "Docker daemon not responding"
+
+echo ""
+echo "Available Docker packages in /var/vcap/packages/docker-ce/debs/:"
+ls -la /var/vcap/packages/docker-ce/debs/ 2>/dev/null || echo "Package directory not found"
+
+echo ""
+echo "Docker socket permissions:"
+ls -la /var/run/docker.sock 2>/dev/null || echo "Docker socket not found"
+
+echo "=================================="
+EOF
+
+chmod +x "${BOSH_INSTALL_TARGET}/verify-docker"

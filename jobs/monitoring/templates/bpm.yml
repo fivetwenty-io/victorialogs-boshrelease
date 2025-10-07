@@ -1,0 +1,36 @@
+---
+processes:
+- name: node-exporter
+  executable: /var/vcap/jobs/monitoring/bin/node-exporter
+  persistent_disk: false
+  ephemeral_disk: false
+
+  limits:
+    memory: 256M
+
+  additional_volumes:
+  - path: /var/vcap/sys/run/docker/docker.sock
+    writable: false
+  - path: /var/vcap/sys/run/ready
+    writable: true
+  - path: /var/vcap/data/monitoring/tmp
+    writable: true
+  - path: /var/vcap/data/monitoring/tmp
+    writable: true
+
+- name: docker-exporter
+  executable: /var/vcap/jobs/monitoring/bin/docker-exporter
+  persistent_disk: false
+  ephemeral_disk: false
+
+  limits:
+    memory: 256M
+
+  env:
+    DOCKER_HOST: unix:///var/vcap/sys/run/docker/docker.sock
+
+  additional_volumes:
+  - path: /var/vcap/sys/run/docker/docker.sock
+    writable: false
+  - path: /var/vcap/sys/run/ready
+    writable: true

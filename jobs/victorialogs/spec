@@ -1,0 +1,60 @@
+---
+name: victorialogs
+packages:
+- docker-ce
+- jq
+
+templates:
+  bpm.yml: config/bpm.yml
+  pre-start: bin/pre-start
+  post-deploy: bin/post-deploy
+  post-start: bin/post-start
+  victorialogs: bin/victorialogs
+  victorialogs-health-check: bin/victorialogs-health-check
+  victorialogs.monitrc: monit
+
+consumes:
+- name: docker
+  type: docker
+
+provides:
+- name: victorialogs
+  type: victorialogs
+  properties:
+  - victorialogs.port
+  - victorialogs.api_endpoint
+
+properties:
+  victorialogs.port:
+    description: "Port for VictoriaLogs HTTP API"
+    default: 9428
+  victorialogs.api_endpoint:
+    description: "VictoriaLogs API endpoint"
+    default: "/insert"
+  victorialogs.container_image:
+    description: "Docker image for VictoriaLogs"
+    default: "docker.io/victoriametrics/victoria-logs:v1.35.0"
+  victorialogs.storage_path:
+    description: "Path for persistent storage of logs"
+    default: "/var/vcap/store/victorialogs/data"
+  victorialogs.retention_period:
+    description: "Log retention period (e.g., 30d, 1y)"
+    default: "30d"
+  victorialogs.memory_limit:
+    description: "Memory limit for VictoriaLogs container"
+    default: "2G"
+  victorialogs.log_level:
+    description: "Log level (INFO, WARN, ERROR, FATAL, PANIC)"
+    default: "INFO"
+  victorialogs.http_auth_username:
+    description: "HTTP basic auth username (optional)"
+    default: ""
+  victorialogs.http_auth_password:
+    description: "HTTP basic auth password (optional)"
+    default: ""
+  victorialogs.max_concurrent_inserts:
+    description: "Maximum number of concurrent insert requests"
+    default: 32
+  victorialogs.insert_rate_limit:
+    description: "Per-second limit on the number of inserted log entries (0 = unlimited)"
+    default: 0

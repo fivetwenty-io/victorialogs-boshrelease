@@ -1,0 +1,30 @@
+#!/bin/bash
+
+# Collect and display metrics
+echo "==========================================="
+echo "System Metrics Collection"
+echo "==========================================="
+
+# Node metrics
+if curl -s http://localhost:<%= p('monitoring.node_exporter_port') %>/metrics &>/dev/null; then
+    echo "Node Exporter: Available at http://localhost:<%= p('monitoring.node_exporter_port') %>/metrics"
+else
+    echo "Node Exporter: Not available"
+fi
+
+# Docker metrics
+if curl -s http://localhost:<%= p('monitoring.docker_exporter_port') %>/metrics &>/dev/null; then
+    echo "Docker Exporter: Available at http://localhost:<%= p('monitoring.docker_exporter_port') %>/metrics"
+
+    # Display container stats
+    echo ""
+    echo "Container Status:"
+    docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Size}}" 2>/dev/null || echo "  No container data available"
+else
+    echo "Docker Exporter: Not available"
+fi
+
+echo ""
+echo "==========================================="
+echo "Metrics collection complete"
+echo "==========================================="

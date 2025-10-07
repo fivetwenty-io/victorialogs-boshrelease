@@ -1,0 +1,28 @@
+---
+name: docker
+packages:
+- docker-ce
+
+templates:
+  pre-start: bin/pre-start
+  dockerd: bin/dockerd
+  docker-daemon.json: config/docker-daemon.json
+  docker.monitrc: monit
+
+provides:
+- name: docker
+  type: docker
+
+properties:
+  docker.storage_driver:
+    description: "Docker storage driver (overlay2, aufs, etc.)"
+    default: "overlay2"
+  docker.data_root:
+    description: "Root directory of persistent Docker state"
+    default: "/var/vcap/store/docker-data"
+  docker.insecure_registries:
+    description: "List of insecure registries"
+    default: []
+  docker.registry_mirrors:
+    description: "List of registry mirrors"
+    default: []

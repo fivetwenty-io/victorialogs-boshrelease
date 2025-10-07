@@ -1,0 +1,128 @@
+#!/bin/bash
+set -e
+
+export DOCKER_HOST=unix:///var/vcap/sys/run/docker/docker.sock
+CONTAINER_NAME="vlinsert-<%= spec.id %>"
+IMAGE="<%= p('vlinsert.container_image') %>"
+PORT=<%= p('vlinsert.port') %>
+MEMORY_LIMIT="<%= p('vlinsert.memory_limit') %>"
+LOG_LEVEL="<%= p('vlinsert.log_level') %>"
+HTTP_AUTH_USERNAME="<%= p('vlinsert.http_auth_username') %>"
+HTTP_AUTH_PASSWORD="<%= p('vlinsert.http_auth_password') %>"
+MAX_CONCURRENT_INSERTS=<%= p('vlinsert.max_concurrent_inserts') %>
+INSERT_RATE_LIMIT=<%= p('vlinsert.insert_rate_limit') %>
+
+# Wait for Docker to be ready
+echo "[$(date '+%H:%M:%S')] VLInsert: Waiting for Docker daemon..."
+DOCKER_READY_FILE=/var/vcap/sys/run/ready/docker
+max_wait=120
+elapsed=0
+
+while [ ! -f "$DOCKER_READY_FILE" ] && [ $elapsed -lt $max_wait ]; do
+    sleep 1
+    elapsed=$((elapsed + 1))
+done
+
+if [ ! -f "$DOCKER_READY_FILE" ]; then
+    echo "[$(date '+%H:%M:%S')] ERROR: Docker daemon not ready after ${max_wait}s"
+    exit 1
+fi
+
+# Additional verification that Docker is actually responsive
+if ! docker info >/dev/null 2>&1; then
+    echo "[$(date '+%H:%M:%S')] ERROR: Docker daemon not responding"
+    exit 1
+fi
+
+echo "[$(date '+%H:%M:%S')] Docker daemon is ready"
+
+# Build storage nodes list from BOSH link
+STORAGE_NODES=""
+<% link("vlstorage").instances.each do |instance| %>
+STORAGE_NODES="${STORAGE_NODES}<%= instance.address %>:<%= link("vlstorage").p("vlstorage.internal_port") %>,"
+<% end %>
+STORAGE_NODES="${STORAGE_NODES%,}"  # Remove trailing comma
+
+echo "[$(date '+%H:%M:%S')] VLInsert: Storage nodes: $STORAGE_NODES"
+
+# Pull VLInsert image
+echo "[$(date '+%H:%M:%S')] Pulling VLInsert image: $IMAGE"
+if ! docker pull "$IMAGE"; then
+    echo "[$(date '+%H:%M:%S')] ERROR: Failed to pull VLInsert image"
+    exit 1
+fi
+
+# Stop and remove existing container if it exists
+echo "[$(date '+%H:%M:%S')] Checking for existing VLInsert container..."
+if docker ps -a --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
+    echo "[$(date '+%H:%M:%S')] Stopping existing container..."
+    docker stop "$CONTAINER_NAME" || true
+    echo "[$(date '+%H:%M:%S')] Removing existing container..."
+    docker rm "$CONTAINER_NAME" || true
+fi
+
+# Build docker run command
+DOCKER_CMD="docker run -d \
+  --name $CONTAINER_NAME \
+  --restart unless-stopped \
+  -p ${PORT}:9481 \
+  --memory=${MEMORY_LIMIT} \
+  $IMAGE"
+
+# Add VLInsert arguments
+DOCKER_CMD="$DOCKER_CMD -httpListenAddr=:9481"
+DOCKER_CMD="$DOCKER_CMD -storageNode=${STORAGE_NODES}"
+DOCKER_CMD="$DOCKER_CMD -loggerLevel=${LOG_LEVEL}"
+DOCKER_CMD="$DOCKER_CMD -loggerFormat=json"
+DOCKER_CMD="$DOCKER_CMD -envflag.enable=true"
+DOCKER_CMD="$DOCKER_CMD -maxConcurrentInserts=${MAX_CONCURRENT_INSERTS}"
+
+if [ "$INSERT_RATE_LIMIT" -gt 0 ]; then
+    DOCKER_CMD="$DOCKER_CMD -insert.maxQueueDuration=1m"
+fi
+
+# Add HTTP auth if configured
+if [ -n "$HTTP_AUTH_USERNAME" ] && [ -n "$HTTP_AUTH_PASSWORD" ]; then
+    DOCKER_CMD="$DOCKER_CMD -httpAuth.username=${HTTP_AUTH_USERNAME}"
+    DOCKER_CMD="$DOCKER_CMD -httpAuth.password=${HTTP_AUTH_PASSWORD}"
+fi
+
+# Start VLInsert container
+echo "[$(date '+%H:%M:%S')] Starting VLInsert container..."
+eval "$DOCKER_CMD"
+
+# Wait for container to be healthy
+echo "[$(date '+%H:%M:%S')] Waiting for VLInsert to be healthy..."
+max_wait=60
+elapsed=0
+
+while [ $elapsed -lt $max_wait ]; do
+    if docker ps --filter "name=${CONTAINER_NAME}" --filter "status=running" | grep -q "$CONTAINER_NAME"; then
+        # Check if VLInsert API is responsive
+        if curl -sf "http://localhost:${PORT}/health" >/dev/null 2>&1; then
+            echo "[$(date '+%H:%M:%S')] VLInsert is healthy"
+            break
+        fi
+    fi
+    sleep 1
+    elapsed=$((elapsed + 1))
+done
+
+if [ $elapsed -ge $max_wait ]; then
+    echo "[$(date '+%H:%M:%S')] ERROR: VLInsert failed to become healthy"
+    docker logs "$CONTAINER_NAME" || true
+    exit 1
+fi
+
+echo "[$(date '+%H:%M:%S')] VLInsert started successfully"
+echo "[$(date '+%H:%M:%S')] API available at http://localhost:${PORT}"
+
+# Keep the script running and monitor the container
+while true; do
+    if ! docker ps --filter "name=${CONTAINER_NAME}" --filter "status=running" | grep -q "$CONTAINER_NAME"; then
+        echo "[$(date '+%H:%M:%S')] ERROR: VLInsert container stopped unexpectedly"
+        docker logs --tail 50 "$CONTAINER_NAME" || true
+        exit 1
+    fi
+    sleep 10
+done

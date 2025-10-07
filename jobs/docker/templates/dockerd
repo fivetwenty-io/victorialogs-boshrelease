@@ -1,0 +1,139 @@
+#!/bin/bash
+set -e
+
+RUN_DIR=/var/vcap/sys/run/docker
+LOG_DIR=/var/vcap/sys/log/docker
+PIDFILE=$RUN_DIR/dockerd.pid
+DAEMON=/usr/bin/dockerd
+
+# Include coordination helpers
+READY_DIR=/var/vcap/sys/run/ready
+# Directory should already exist from pre-start with proper permissions
+
+mark_ready() {
+    local service=$1
+    touch $READY_DIR/$service
+    echo "[$(date '+%H:%M:%S')] $service: Marked as ready"
+}
+
+# Set clean environment variables
+PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+
+export PATH
+
+case $1 in
+  start)
+    mkdir -p $RUN_DIR $LOG_DIR
+    chown vcap:vcap $RUN_DIR $LOG_DIR
+
+    # Clean up any leftover sockets (including if it's a directory)
+    rm -rf $RUN_DIR/docker.sock
+
+    # Check if containerd is running first
+    echo "[$(date '+%H:%M:%S')] Checking containerd status..."
+    if ! systemctl is-active --quiet containerd.service; then
+        echo "[$(date '+%H:%M:%S')] WARNING: containerd is not running, attempting to start it..."
+        systemctl start containerd.service 2>&1 || {
+            echo "[$(date '+%H:%M:%S')] ERROR: Failed to start containerd"
+            echo "[$(date '+%H:%M:%S')] containerd status:"
+            systemctl status containerd.service 2>&1 || true
+        }
+    fi
+
+    echo "[$(date '+%H:%M:%S')] Starting dockerd..."
+    echo "[$(date '+%H:%M:%S')] Config file: /var/vcap/jobs/docker/config/docker-daemon.json"
+    echo "[$(date '+%H:%M:%S')] Socket: unix://$RUN_DIR/docker.sock"
+
+    # Start Docker daemon with better error capture
+    $DAEMON \
+      --config-file=/var/vcap/jobs/docker/config/docker-daemon.json \
+      --pidfile=$PIDFILE \
+      --host=unix://$RUN_DIR/docker.sock \
+      >> $LOG_DIR/dockerd.stdout.log \
+      2>> $LOG_DIR/dockerd.stderr.log &
+
+    DOCKER_PID=$!
+    echo "[$(date '+%H:%M:%S')] Docker daemon started with PID: $DOCKER_PID"
+
+    # Wait for socket to be created
+    echo "[$(date '+%H:%M:%S')] Waiting for Docker socket..."
+    for i in {1..120}; do  # 60 seconds max (120 * 0.5s)
+      if [ -S $RUN_DIR/docker.sock ]; then
+        echo "[$(date '+%H:%M:%S')] Docker socket created, verifying daemon is responsive..."
+
+        # Create backward compatibility symlink
+        ln -sf $RUN_DIR/docker.sock /var/run/docker.sock 2>/dev/null || true
+
+        # Verify Docker is actually working before marking as ready
+        export DOCKER_HOST=unix://$RUN_DIR/docker.sock
+        for j in {1..10}; do  # Additional 5 seconds for Docker to be fully ready
+          if docker version >/dev/null 2>&1; then
+            echo "[$(date '+%H:%M:%S')] Docker daemon is responsive and ready (waited $(perl -e "printf '%.1f', ($i+$j*2)/2") seconds total)"
+            # Mark docker as ready - ensure directory exists
+            mkdir -p $READY_DIR
+            mark_ready "docker"
+            # Verify the ready file was created
+            if [ -f $READY_DIR/docker ]; then
+              echo "[$(date '+%H:%M:%S')] Docker ready file created successfully at $READY_DIR/docker"
+            else
+              echo "[$(date '+%H:%M:%S')] WARNING: Failed to create Docker ready file at $READY_DIR/docker"
+            fi
+            exit 0
+          fi
+          sleep 0.5
+        done
+
+        echo "[$(date '+%H:%M:%S')] WARNING: Docker socket exists but daemon is not responsive"
+      fi
+
+      # Check if the process is still running
+      if [ $i -eq 10 ] || [ $i -eq 30 ] || [ $i -eq 60 ]; then
+        if ! kill -0 $DOCKER_PID 2>/dev/null; then
+          echo "[$(date '+%H:%M:%S')] ERROR: Docker daemon process died"
+          echo "[$(date '+%H:%M:%S')] Last 20 lines of stderr:"
+          tail -n 20 $LOG_DIR/dockerd.stderr.log 2>/dev/null || true
+          echo "[$(date '+%H:%M:%S')] Last 10 lines of stdout:"
+          tail -n 10 $LOG_DIR/dockerd.stdout.log 2>/dev/null || true
+          exit 1
+        fi
+      fi
+
+      sleep 0.5
+    done
+
+    echo "[$(date '+%H:%M:%S')] ERROR: Docker daemon failed to start properly"
+    echo "[$(date '+%H:%M:%S')] Last 20 lines of stderr:"
+    tail -n 20 $LOG_DIR/dockerd.stderr.log 2>/dev/null || true
+    echo "[$(date '+%H:%M:%S')] Last 10 lines of stdout:"
+    tail -n 10 $LOG_DIR/dockerd.stdout.log 2>/dev/null || true
+    exit 1
+    ;;
+
+  stop)
+    echo "Stopping dockerd..."
+    if [ -f $PIDFILE ]; then
+      PID=$(cat $PIDFILE)
+      kill -TERM $PID || true
+
+      # Wait for process to exit (up to 30 seconds)
+      for i in {1..60}; do
+        if ! kill -0 $PID 2>/dev/null; then
+          echo "dockerd stopped successfully"
+          break
+        fi
+        sleep 0.5
+      done
+
+      # dockerd removes its own pidfile on clean shutdown
+      # Only remove it if it still exists after graceful shutdown
+      if [ -f $PIDFILE ]; then
+        rm -f $PIDFILE
+      fi
+    fi
+    ;;
+
+  *)
+    echo "Usage: $0 {start|stop}"
+    exit 1
+    ;;
+esac

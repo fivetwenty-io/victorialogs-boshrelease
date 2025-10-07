@@ -1,0 +1,21 @@
+#!/bin/bash
+set -e
+
+# Include coordination helpers
+READY_DIR=/var/vcap/sys/run/ready
+mkdir -p $READY_DIR
+chmod 777 $READY_DIR
+
+clear_ready() {
+    local service=$1
+    rm -f $READY_DIR/$service
+    echo "[$(date '+%H:%M:%S')] $service: Cleared ready status"
+}
+
+# Clear ready status at start
+clear_ready "vlinsert"
+
+export DOCKER_HOST=unix:///var/vcap/sys/run/docker/docker.sock
+
+echo "VLInsert pre-start: preparing runtime environment..."
+echo "VLInsert pre-start configuration complete"
