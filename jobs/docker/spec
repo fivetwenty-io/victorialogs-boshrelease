@@ -7,7 +7,6 @@ templates:
   pre-start: bin/pre-start
   dockerd: bin/dockerd
   docker-daemon.json: config/docker-daemon.json
-  docker.monitrc: monit
 
 provides:
 - name: docker
