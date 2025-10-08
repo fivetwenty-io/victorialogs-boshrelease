@@ -11,7 +11,6 @@ templates:
   post-start: bin/post-start
   vlstorage: bin/vlstorage
   vlstorage-health-check: bin/vlstorage-health-check
-  vlstorage.monitrc: monit
 
 consumes:
 - name: docker

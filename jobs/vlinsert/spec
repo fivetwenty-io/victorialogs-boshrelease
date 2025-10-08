@@ -11,7 +11,6 @@ templates:
   post-start: bin/post-start
   vlinsert: bin/vlinsert
   vlinsert-health-check: bin/vlinsert-health-check
-  vlinsert.monitrc: monit
 
 consumes:
 - name: docker

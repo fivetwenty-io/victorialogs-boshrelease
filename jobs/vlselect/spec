@@ -11,7 +11,6 @@ templates:
   post-start: bin/post-start
   vlselect: bin/vlselect
   vlselect-health-check: bin/vlselect-health-check
-  vlselect.monitrc: monit
 
 consumes:
 - name: docker
