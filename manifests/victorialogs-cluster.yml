@@ -1,10 +1,10 @@
 ---
-name: victorialogs-cluster
+name: prod-ocf-victorialogs
 
 releases:
-- name: bpm
-  version: latest
 - name: victorialogs
+  version: latest
+- name: bpm
   version: latest
 
 stemcells:
@@ -14,21 +14,24 @@ stemcells:
 
 update:
   canaries: 1
+  canary_watch_time: 30000-600000
   max_in_flight: 1
   serial: true
-  canary_watch_time: 30000-600000
   update_watch_time: 30000-600000
 
 instance_groups:
 # VLStorage - Persistent storage node
 - name: vlstorage
   instances: 1
-  azs: [z1]
+  azs:
+  - prod-ocf-z2
   networks:
-  - name: default
-  vm_type: default
+  - name: prod-ocf.victorialogs.net-victorialogs
+    static_ips:
+    - 10.4.8.32
+  vm_type: prod-ocf.victorialogs.vm-gpu-small
   stemcell: default
-  persistent_disk_type: large
+  persistent_disk_type: prod-ocf.victorialogs.disk-victorialogs
 
   jobs:
   - name: bpm
@@ -89,23 +92,27 @@ instance_groups:
         http_auth_username: ""
         http_auth_password: ""
 
-  - name: monitoring
-    release: victorialogs
-    properties:
-      monitoring:
-        enabled: true
-        node_exporter_port: 9100
-        scrape_interval: 30s
-        retention_days: 7
+          #- name: monitoring
+          #  release: victorialogs
+          #  properties:
+          #    monitoring:
+          #      enabled: true
+          #      node_exporter_port: 9100
+          #      scrape_interval: 30s
+          #      retention_days: 7
 
 # VLInsert - Log ingestion node
 - name: vlinsert
   instances: 1
-  azs: [z1]
+  azs:
+  - prod-ocf-z2
   networks:
-  - name: default
-  vm_type: default
+  - name: prod-ocf.victorialogs.net-victorialogs
+    static_ips:
+    - 10.4.8.33
+  vm_type: prod-ocf.victorialogs.vm-gpu-small
   stemcell: default
+  persistent_disk_type: prod-ocf.victorialogs.disk-victorialogs
 
   jobs:
   - name: bpm
@@ -116,7 +123,8 @@ instance_groups:
     consumes:
       vlstorage:
         from: vlstorage
-        deployment: ((deployment_name))
+
+        deployment: prod-ocf-victorialogs
     provides:
       vlinsert:
         as: vlinsert
@@ -184,23 +192,27 @@ instance_groups:
         http_auth_username: ""
         http_auth_password: ""
 
-  - name: monitoring
-    release: victorialogs
-    properties:
-      monitoring:
-        enabled: true
-        node_exporter_port: 9100
-        scrape_interval: 30s
-        retention_days: 7
+          #- name: monitoring
+          #  release: victorialogs
+          #  properties:
+          #    monitoring:
+          #      enabled: true
+          #      node_exporter_port: 9100
+          #      scrape_interval: 30s
+          #      retention_days: 7
 
 # VLSelect - Query processing node
 - name: vlselect
   instances: 1
-  azs: [z1]
+  azs:
+  - prod-ocf-z2
   networks:
-  - name: default
-  vm_type: default
+  - name: prod-ocf.victorialogs.net-victorialogs
+    static_ips:
+    - 10.4.8.34
+  vm_type: prod-ocf.victorialogs.vm-gpu-small
   stemcell: default
+  persistent_disk_type: prod-ocf.victorialogs.disk-victorialogs
 
   jobs:
   - name: bpm
@@ -211,7 +223,8 @@ instance_groups:
     consumes:
       vlstorage:
         from: vlstorage
-        deployment: ((deployment_name))
+        deployment: prod-ocf-victorialogs
+
     provides:
       vlselect:
         as: vlselect
@@ -275,12 +288,12 @@ instance_groups:
         http_auth_username: ""
         http_auth_password: ""
 
-  - name: monitoring
-    release: victorialogs
-    properties:
-      monitoring:
-        enabled: true
-        node_exporter_port: 9100
-        scrape_interval: 30s
-        retention_days: 7
-   default: victorialogs-cluster
+          #- name: monitoring
+          #  release: victorialogs
+          #  properties:
+          #    monitoring:
+          #      enabled: true
+          #      node_exporter_port: 9100
+          #      scrape_interval: 30s
+          #      retention_days: 7
+          # default: victorialogs-cluster
