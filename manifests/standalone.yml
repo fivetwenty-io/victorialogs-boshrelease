@@ -1,0 +1,54 @@
+---
+instance_groups:
+- azs:
+  - prod-ocf-z2
+  instances: 1
+  jobs:
+  - name: bpm
+    release: bpm
+  - name: docker
+    properties:
+      docker:
+        data_root: /var/vcap/data/docker
+        enable_nvidia_runtime: true
+        insecure_registries: []
+        registry_mirrors: []
+        storage_driver: overlay2
+    release: victorialogs
+  - name: victorialogs
+    release: victorialogs
+  - name: monitoring
+    properties:
+      monitoring:
+        docker_exporter_port: 9323
+        enabled: true
+        gpu_exporter_port: 9835
+        node_exporter_port: 9100
+        retention_days: 7
+        scrape_interval: 30s
+    release: victorialogs
+  name: victorialogs
+  networks:
+  - name: prod-ocf.victorialogs.net-victorialogs
+    static_ips:
+    - 10.4.8.32
+  persistent_disk_type: prod-ocf.victorialogs.disk-victorialogs
+  stemcell: default
+  vm_type: prod-ocf.victorialogs.vm-gpu-small
+name: prod-ocf-victorialogs
+releases:
+- name: victorialogs
+  version: latest
+- name: bpm
+  version: latest
+stemcells:
+- alias: default
+  os: ubuntu-jammy
+  version: latest
+update:
+  canaries: 1
+  canary_watch_time: 30000-600000
+  max_in_flight: 1
+  serial: true
+  update_watch_time: 30000-600000
+
