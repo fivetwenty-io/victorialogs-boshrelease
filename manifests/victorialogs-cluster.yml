@@ -20,10 +20,10 @@ update:
   update_watch_time: 30000-600000
 
 instance_groups:
-# VLStorage - Persistent storage nodes (minimum 2 for cluster)
+# VLStorage - Persistent storage node
 - name: vlstorage
-  instances: 2
-  azs: [z1, z2]
+  instances: 1
+  azs: [z1]
   networks:
   - name: default
   vm_type: default
@@ -34,26 +34,59 @@ instance_groups:
   - name: bpm
     release: bpm
 
-  - name: docker
-    release: victorialogs
-    properties:
-      docker:
-        storage_driver: overlay2
-        data_root: /var/vcap/data/docker
-        insecure_registries: []
-        registry_mirrors: []
-
   - name: vlstorage
     release: victorialogs
+    provides:
+      vlstorage:
+        as: vlstorage
+        shared: true
     properties:
       vlstorage:
-        port: 9491
-        internal_port: 9491
-        container_image: "docker.io/victoriametrics/victoria-logs:v1.35.0"
+        # Network Configuration
+        http_port: 8482
+        vminsert_port: 8400
+        vmselect_port: 8401
+
+        # Storage Configuration
         storage_path: "/var/vcap/store/vlstorage/data"
-        retention_period: "7d"
-        memory_limit: "4G"
+        retention_period: "7"  # 7 days
+
+        # Performance Tuning
+        max_concurrent_inserts: 32
+        insert_max_queue_duration: "1m"
+        search_max_concurrent_requests: 16
+        search_max_queue_duration: "10s"
+
+        # Memory Configuration
+        memory_allowed_percent: 60
+
+        # Cache Configuration
+        cache_expire_duration: "30m"
+        prev_cache_removal_percent: 0.1
+        blockcache_misses_before_caching: 2
+
+        # Disk Space Management
+        storage_min_free_disk_space_bytes: "10000000"
+        inmemory_data_flush_interval: "5s"
+
+        # Search Configuration
+        search_max_tag_keys: 100000
+        search_max_tag_values: 100000
+        search_max_tag_value_suffixes_per_search: 100000
+
+        # HTTP Server Configuration
+        http_conn_timeout: "2m"
+        http_idle_conn_timeout: "1m"
+        http_max_graceful_shutdown_duration: "7s"
+
+        # Logging Configuration
         log_level: "INFO"
+        log_format: "default"
+        logger_output: "stderr"
+        logger_timezone: "UTC"
+        logger_max_arg_len: 5000
+
+        # Authentication (leave empty for no auth)
         http_auth_username: ""
         http_auth_password: ""
 
@@ -63,14 +96,13 @@ instance_groups:
       monitoring:
         enabled: true
         node_exporter_port: 9100
-        docker_exporter_port: 9323
         scrape_interval: 30s
         retention_days: 7
 
-# VLInsert - Log ingestion nodes (minimum 2 for HA)
+# VLInsert - Log ingestion node
 - name: vlinsert
-  instances: 2
-  azs: [z1, z2]
+  instances: 1
+  azs: [z1]
   networks:
   - name: default
   vm_type: default
@@ -79,28 +111,98 @@ instance_groups:
   jobs:
   - name: bpm
     release: bpm
-
-  - name: docker
-    release: victorialogs
-    properties:
-      docker:
-        storage_driver: overlay2
-        data_root: /var/vcap/data/docker
-        insecure_registries: []
-        registry_mirrors: []
 
   - name: vlinsert
     release: victorialogs
+    consumes:
+      vlstorage:
+        from: vlstorage
+        deployment: ((deployment_name))
+    provides:
+      vlinsert:
+        as: vlinsert
+        shared: true
     properties:
       vlinsert:
-        port: 9481
-        container_image: "docker.io/victoriametrics/victoria-logs:v1.35.0"
-        memory_limit: "2G"
-        log_level: "INFO"
+        # Core HTTP settings
+        http_listen_addr: ":8480"
+        http_conn_timeout: "2m0s"
+        http_idle_conn_timeout: "1m0s"
+        http_max_graceful_shutdown_duration: "7s"
+
+        # Core insert settings
+        max_concurrent_inserts: 32  # 0 means 2*cgroup.AvailableCPUs()
+        max_insert_request_size: 33554432  # 32MB
+        insert_max_queue_duration: "1m0s"
+
+        # Replication and routing
+        replication_factor: 1
+        disable_rerouting: true
+        disable_rerouting_on_unavailable: false
+        drop_samples_on_overload: false
+
+        # Storage node settings
+        storage_node_discovery_interval: "2s"
+        vmstorage_dial_timeout: "3s"
+        vmstorage_user_timeout: "3s"
+
+        # RPC settings
+        rpc_disable_compression: false
+        rpc_handshake_timeout: "5s"
+
+        # Memory and cache settings
+        memory_allowed_percent: 60
+        cache_expire_duration: "30m0s"
+        prev_cache_removal_percent: 0.1
+        blockcache_misses_before_caching: 2
+
+        # String interning settings
+        intern_string_max_len: 500
+        intern_string_cache_expire_duration: "6m0s"
+        intern_string_disable_cache: false
+
+        # Label settings
+        sort_labels: false
+        max_labels_per_timeseries: 40
+        max_label_name_len: 256
+        max_label_value_len: 4096
+
+        # Import settings
+        import_max_line_len: 10485760  # 10MB
+
+        # Query settings
+        search_deny_partial_response: false
+
+        # Prometheus compatibility
+        use_prom_compatible_naming: false
+
+        # Logging settings
+        logger_level: "INFO"
+        logger_format: "default"
+        logger_output: "stderr"
+        logger_timezone: "UTC"
+        logger_max_arg_len: 5000
+        logger_disable_timestamps: false
+
+        # Metrics exposure
+        metrics_expose_metadata: false
+
+        # Query tracing
+        deny_query_tracing: false
+
+        # Environment flags
+        envflag_enable: false
+
+        # IPv6
+        enable_tcp6: false
+
+        # File system settings
+        fs_disable_mmap: false
+        filestream_disable_fadvise: false
+
+        # Authentication (leave empty for no auth)
         http_auth_username: ""
         http_auth_password: ""
-        max_concurrent_inserts: 32
-        insert_rate_limit: 0
 
   - name: monitoring
     release: victorialogs
@@ -108,14 +210,13 @@ instance_groups:
       monitoring:
         enabled: true
         node_exporter_port: 9100
-        docker_exporter_port: 9323
         scrape_interval: 30s
         retention_days: 7
 
-# VLSelect - Query processing nodes (minimum 2 for HA)
+# VLSelect - Query processing node
 - name: vlselect
-  instances: 2
-  azs: [z1, z2]
+  instances: 1
+  azs: [z1]
   networks:
   - name: default
   vm_type: default
@@ -125,26 +226,135 @@ instance_groups:
   - name: bpm
     release: bpm
 
-  - name: docker
-    release: victorialogs
-    properties:
-      docker:
-        storage_driver: overlay2
-        data_root: /var/vcap/data/docker
-        insecure_registries: []
-        registry_mirrors: []
-
   - name: vlselect
     release: victorialogs
+    consumes:
+      vlstorage:
+        from: vlstorage
+        deployment: ((deployment_name))
+    provides:
+      vlselect:
+        as: vlselect
+        shared: true
     properties:
       vlselect:
-        port: 9471
-        container_image: "docker.io/victoriametrics/victoria-logs:v1.35.0"
-        memory_limit: "2G"
-        log_level: "INFO"
+        # Core HTTP settings
+        http_listen_addr: ":8481"
+        http_conn_timeout: "2m0s"
+        http_idle_conn_timeout: "1m0s"
+        http_max_graceful_shutdown_duration: "7s"
+
+        # Storage node settings
+        storage_node_discovery_interval: "2s"
+        vmstorage_dial_timeout: "3s"
+        vmstorage_user_timeout: "3s"
+
+        # RPC settings
+        rpc_handshake_timeout: "5s"
+
+        # Replication settings
+        replication_factor: {}
+        global_replication_factor: 1
+        search_skip_slow_replicas: false
+
+        # Memory and cache settings
+        memory_allowed_percent: 60
+        cache_expire_duration: "30m0s"
+        prev_cache_removal_percent: 0.1
+        blockcache_misses_before_caching: 2
+
+        # String interning settings
+        intern_string_max_len: 500
+        intern_string_cache_expire_duration: "6m0s"
+        intern_string_disable_cache: false
+
+        # Search/query settings
+        search_cache_timestamp_offset: "5m0s"
+        search_deny_partial_response: false
+        search_disable_cache: false
+        search_disable_implicit_conversion: false
+        search_reset_rollup_result_cache_on_startup: false
+        search_treat_dots_as_is_in_regexps: false
+        search_no_stale_markers: false
+        search_set_lookback_to_step: false
+        search_log_implicit_conversion: false
+        search_log_slow_query_duration: "5s"
+
+        # Query limits
+        search_max_concurrent_requests: 16  # 0 means auto
+        search_max_queue_duration: "10s"
+        search_max_query_duration: "30s"
+        search_max_query_len: 16384
+        search_max_samples_per_query: 1000000000
+        search_max_samples_per_series: 30000000
+        search_max_points_per_timeseries: 30000
+        search_max_points_subquery_per_timeseries: 100000
+        search_max_series_per_aggr_func: 1000000
+
+        # API limits
+        search_max_export_duration: "720h0m0s"
+        search_max_export_series: 10000000
+        search_max_federate_series: 1000000
+        search_max_series: 30000
+        search_max_tsdb_status_series: 10000000
+        search_max_tsdb_status_top_n: 1000
+        search_max_labels_api_series: 1000000
+        search_max_labels_api_duration: "5s"
+        search_ignore_extra_filters_at_labels_api: false
+        search_max_status_request_duration: "5m0s"
+        search_max_delete_duration: "5m0s"
+        search_max_delete_series: 1000000
+        search_max_binary_op_pushdown_label_values: 100
+        search_max_tag_value_suffixes_per_search: 100000
+
+        # Graphite API settings
+        search_graphite_max_points_per_series: 1000000
+        search_graphite_max_series: 300000
+        search_graphite_storage_step: "10s"
+        search_graphite_max_tag_keys: 100000
+        search_graphite_max_tag_values: 100000
+        search_graphite_max_path_expression_len: 1024
+        graphite_sanitize_metric_name: false
+
+        # Lookback and staleness
+        search_latency_offset: "30s"
+        search_max_step_for_points_adjustment: "1m0s"
+        search_min_window_for_instant_rollup_optimization: "3h0m0s"
+
+        # Query stats
+        search_query_stats_last_queries_count: 20000
+        search_query_stats_min_query_duration: "1ms"
+
+        # Tenant cache
+        search_tenant_cache_expire_duration: "5m0s"
+
+        # Query tracing
+        deny_query_tracing: false
+
+        # Logging settings
+        logger_level: "INFO"
+        logger_format: "default"
+        logger_output: "stderr"
+        logger_timezone: "UTC"
+        logger_max_arg_len: 5000
+        logger_disable_timestamps: false
+
+        # Metrics exposure
+        metrics_expose_metadata: false
+
+        # Environment flags
+        envflag_enable: false
+
+        # IPv6
+        enable_tcp6: false
+
+        # File system settings
+        fs_disable_mmap: false
+        filestream_disable_fadvise: false
+
+        # Authentication (leave empty for no auth)
         http_auth_username: ""
         http_auth_password: ""
-        max_concurrent_requests: 32
 
   - name: monitoring
     release: victorialogs
@@ -152,6 +362,6 @@ instance_groups:
       monitoring:
         enabled: true
         node_exporter_port: 9100
-        docker_exporter_port: 9323
         scrape_interval: 30s
         retention_days: 7
+   default: victorialogs-cluster
