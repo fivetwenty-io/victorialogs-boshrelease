@@ -6,16 +6,17 @@ A BOSH release for deploying VictoriaLogs, a fast and cost-effective log managem
 
 - **High Performance**: Efficient log ingestion and querying
 - **LogsQL Support**: Powerful query language for log analysis
-- **Container-Based**: Runs VictoriaLogs via Docker for easy updates
-- **Monitoring**: Built-in Prometheus exporters for system and container metrics
-- **Scalability**: Support for both single VM and distributed deployments
+- **Native Binaries**: Runs VictoriaLogs directly using native binaries for optimal performance
+- **Cluster Mode**: Full support for distributed cluster deployments with vlstorage, vlinsert, and vlselect components
+- **Monitoring**: Built-in Prometheus exporters for system metrics
+- **Scalability**: Support for both single-node and distributed deployments
 - **Flexible Storage**: Configurable retention periods and storage paths
 
 ## Components
 
-- **Docker CE**: Container runtime for VictoriaLogs
-- **VictoriaLogs**: Log management and analytics engine
-- **Monitoring Stack**: Prometheus exporters for system and Docker metrics
+- **VictoriaLogs**: Log management and analytics engine (victoria-logs-prod binary)
+- **VLUtils**: VictoriaLogs utilities for log processing and management
+- **Monitoring Stack**: Prometheus exporters for system metrics
 
 ## Quick Start
 
@@ -46,6 +47,7 @@ bosh -d victorialogs-cluster deploy manifests/victorialogs-cluster.yml
 ```
 
 3. **Access the cluster:**
+- VLStorage nodes: `http://<vlstorage-ip>:9491` (internal API)
 - Insert logs via VLInsert: `POST http://<vlinsert-ip>:9481/insert/jsonline`
 - Query logs via VLSelect: `GET http://<vlselect-ip>:9471/select/logsql/query?query=<query>`
 - Health check: `GET http://<component-ip>:<port>/health`

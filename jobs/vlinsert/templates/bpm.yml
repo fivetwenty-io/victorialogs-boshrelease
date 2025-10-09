@@ -1,10 +1,10 @@
 ---
 processes:
   - name: vlinsert
-    executable: /var/vcap/packages/victoria-logs/bin/vminsert
+    executable: /var/vcap/packages/victoria-logs/bin/victoria-logs-prod
     args:
-      # Core HTTP settings
-      - -httpListenAddr=<%= p('vlinsert.http_listen_addr') %>
+      # Core HTTP settings - VictoriaLogs insert mode
+      - -httpListenAddr=0.0.0.0:<%= p('vlinsert.http_port') %>
       <% if p('vlinsert.http_listen_addr_use_proxy_protocol') -%>
       - -httpListenAddr.useProxyProtocol
       <% end -%>
@@ -346,9 +346,9 @@ processes:
       - -filestream.disableFadvise
       <% end -%>
 
-      # Storage nodes from BOSH link
+      # Storage nodes from BOSH link - enables vlinsert mode
       <% link("vlstorage").instances.each do |instance| -%>
-      - -storageNode=<%= instance.address %>:<%= link("vlstorage").p("vlstorage.vminsert_port") %>
+      - -storageNode=<%= instance.address %>:<%= link("vlstorage").p("vlstorage.http_port") %>
       <% end -%>
 
     persistent_disk: false

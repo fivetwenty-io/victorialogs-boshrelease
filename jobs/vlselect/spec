@@ -19,14 +19,13 @@ provides:
 - name: vlselect
   type: vlselect
   properties:
-  - vlselect.http_listen_addr
-  - vlselect.cluster_native_listen_addr
+  - vlselect.http_port
 
 properties:
   # Core HTTP settings
-  vlselect.http_listen_addr:
-    description: "Address to listen for incoming http requests"
-    default: ":8481"
+  vlselect.http_port:
+    description: "Port for VictoriaLogs select/query HTTP API"
+    default: 9471
   vlselect.http_listen_addr_use_proxy_protocol:
     description: "Whether to use proxy protocol for connections"
     default: false
@@ -35,10 +34,10 @@ properties:
     default: ""
   vlselect.http_conn_timeout:
     description: "Incoming connection timeout duration"
-    default: "2m0s"
+    default: "2m"
   vlselect.http_idle_conn_timeout:
     description: "Timeout for incoming idle http connections"
-    default: "1m0s"
+    default: "1m"
   vlselect.http_max_graceful_shutdown_duration:
     description: "Maximum duration for graceful HTTP server shutdown"
     default: "7s"
@@ -82,129 +81,30 @@ properties:
   vlselect.pprof_auth_key:
     description: "Auth key for /debug/pprof/* endpoints"
     default: ""
-  vlselect.delete_auth_key:
-    description: "Auth key for metrics deletion endpoints"
-    default: ""
-  vlselect.reset_cache_auth_key:
-    description: "Auth key for resetting rollup cache"
-    default: ""
-  vlselect.metric_names_stats_reset_auth_key:
-    description: "Auth key for resetting metric names usage cache"
-    default: ""
 
-  # Cluster native settings
-  vlselect.cluster_native_listen_addr:
-    description: "TCP address for requests from other vmselect nodes in multi-level cluster"
-    default: ""
-  vlselect.cluster_native_disable_compression:
-    description: "Disable compression of data sent to vmselect"
-    default: false
-  vlselect.cluster_native_max_concurrent_requests:
-    description: "Maximum concurrent vmselect requests at clusternative port"
-    default: 0  # 0 means 2*cgroup.AvailableCPUs()
-  vlselect.cluster_native_max_queue_duration:
-    description: "Maximum time request waits when concurrent limit is reached"
+  # Search/query settings
+  vlselect.search_max_concurrent_requests:
+    description: "Maximum concurrent search requests"
+    default: 16
+  vlselect.search_max_queue_duration:
+    description: "Maximum time to wait in queue for search requests"
     default: "10s"
-  vlselect.cluster_native_max_tag_keys:
-    description: "Maximum number of tag keys returned per search"
-    default: 100000
-  vlselect.cluster_native_max_tag_values:
-    description: "Maximum number of tag values returned per search"
-    default: 100000
-  vlselect.cluster_native_max_tag_value_suffixes:
-    description: "Maximum number of tag value suffixes from /metrics/find"
-    default: 100000
-
-  # Cluster native TLS (enterprise)
-  vlselect.cluster_native_tls:
-    description: "Use TLS when accepting connections at clusternative port (enterprise)"
+  vlselect.search_max_query_duration:
+    description: "Maximum duration for query execution"
+    default: "30s"
+  vlselect.search_allow_partial_response:
+    description: "Allow returning partial responses when some storage nodes are unavailable"
     default: false
-  vlselect.cluster_native_tls_ca_file:
-    description: "Path to TLS CA file for clusternative connections (enterprise)"
-    default: ""
-  vlselect.cluster_native_tls_cert_file:
-    description: "Path to server-side TLS certificate for clusternative (enterprise)"
-    default: ""
-  vlselect.cluster_native_tls_key_file:
-    description: "Path to server-side TLS key for clusternative (enterprise)"
-    default: ""
-  vlselect.cluster_native_tls_cipher_suites:
-    description: "TLS cipher suites for clusternative connections (enterprise)"
-    default: []
-  vlselect.cluster_native_tls_insecure_skip_verify:
-    description: "Skip TLS certificate verification for clusternative (enterprise)"
-    default: false
+  vlselect.default_parallel_readers:
+    description: "Default number of parallel data readers for queries"
+    default: 32
 
-  # Storage node settings
-  vlselect.storage_node_discovery_interval:
-    description: "Interval for refreshing storage node list via DNS SRV (enterprise)"
-    default: "2s"
-  vlselect.storage_node_filter:
-    description: "Regexp filter for discovered storage node addresses (enterprise)"
-    default: ""
-  vlselect.vmstorage_dial_timeout:
-    description: "Timeout for establishing RPC connections to vmstorage"
-    default: "3s"
-  vlselect.vmstorage_user_timeout:
-    description: "Network timeout for RPC connections to vmstorage (Linux only)"
-    default: "3s"
-
-  # Other vmselect nodes (multi-level cluster)
-  vlselect.select_node:
-    description: "Addresses of vmselect nodes for multi-level cluster"
-    default: []
-
-  # RPC settings
-  vlselect.rpc_handshake_timeout:
-    description: "Timeout for RPC handshake with vmstorage"
-    default: "5s"
-
-  # Cluster TLS settings (enterprise)
-  vlselect.cluster_tls:
-    description: "Use TLS for connections to storage nodes (enterprise)"
-    default: false
-  vlselect.cluster_tls_ca_file:
-    description: "Path to TLS CA file for verifying storage node certificates (enterprise)"
-    default: ""
-  vlselect.cluster_tls_cert_file:
-    description: "Path to client-side TLS certificate file (enterprise)"
-    default: ""
-  vlselect.cluster_tls_key_file:
-    description: "Path to client-side TLS key file (enterprise)"
-    default: ""
-  vlselect.cluster_tls_insecure_skip_verify:
-    description: "Skip verification of TLS certificates from storage nodes (enterprise)"
-    default: false
-
-  # Replication settings
-  vlselect.replication_factor:
-    description: "How many copies of ingested sample are available per storage group"
-    default: {}  # Map of group:factor
-  vlselect.global_replication_factor:
-    description: "How many copies available across vmstorage groups"
-    default: 1
-  vlselect.search_skip_slow_replicas:
-    description: "Skip slowest replicas during querying"
-    default: false
-
-  # Memory and cache settings
+  # Memory settings
   vlselect.memory_allowed_percent:
-    description: "Allowed percent of system memory for caches"
+    description: "Allowed percent of system memory VictoriaLogs caches may occupy"
     default: 60
   vlselect.memory_allowed_bytes:
-    description: "Allowed size of system memory for caches (overrides percent if non-zero)"
-    default: 0
-  vlselect.cache_expire_duration:
-    description: "Duration after which items are removed from in-memory caches"
-    default: "30m0s"
-  vlselect.prev_cache_removal_percent:
-    description: "Threshold percent for removing items from previous caches"
-    default: 0.1
-  vlselect.blockcache_misses_before_caching:
-    description: "Number of cache misses before putting block into cache"
-    default: 2
-  vlselect.cache_data_path:
-    description: "Path to directory for cache files and temporary query results"
+    description: "Allowed size of system memory VictoriaLogs caches may occupy"
     default: ""
 
   # String interning settings
@@ -212,223 +112,15 @@ properties:
     description: "Maximum length for strings to intern"
     default: 500
   vlselect.intern_string_cache_expire_duration:
-    description: "Expiry duration for interned string caches"
-    default: "6m0s"
+    description: "Expiry duration for interned strings cache"
+    default: "6m"
   vlselect.intern_string_disable_cache:
     description: "Disable caches for interned strings"
     default: false
 
-  # Deduplication
-  vlselect.dedup_min_scrape_interval:
-    description: "Leave only last sample in every interval for deduplication"
-    default: ""
-
-  # Downsampling (enterprise)
-  vlselect.downsampling_period:
-    description: "Downsampling periods in format offset:period (enterprise)"
-    default: []
-
-  # Search/query settings
-  vlselect.search_cache_timestamp_offset:
-    description: "Maximum duration since current time for response data"
-    default: "5m0s"
-  vlselect.search_deny_partial_response:
-    description: "Deny partial responses if some storage nodes fail"
-    default: false
-  vlselect.search_disable_cache:
-    description: "Disable response caching"
-    default: false
-  vlselect.search_disable_implicit_conversion:
-    description: "Return error for queries with implicit subquery conversions"
-    default: false
-  vlselect.search_reset_rollup_result_cache_on_startup:
-    description: "Reset rollup result cache on startup"
-    default: false
-  vlselect.search_treat_dots_as_is_in_regexps:
-    description: "Treat dots as is in regexp label filters"
-    default: false
-  vlselect.search_no_stale_markers:
-    description: "Database doesn't contain Prometheus stale markers"
-    default: false
-  vlselect.search_set_lookback_to_step:
-    description: "Fix lookback interval to step query arg value"
-    default: false
-  vlselect.search_log_implicit_conversion:
-    description: "Log queries with implicit subquery conversions"
-    default: false
-  vlselect.search_log_slow_query_duration:
-    description: "Log queries exceeding this execution time (0 disables)"
-    default: "5s"
-  vlselect.search_log_query_memory_usage:
-    description: "Log queries requiring more memory than specified (0 disables)"
-    default: 0
-  vlselect.search_log_slow_query_stats:
-    description: "Log query statistics if execution exceeds this (enterprise)"
-    default: ""
-  vlselect.search_log_slow_query_stats_headers:
-    description: "HTTP headers to log for slow queries (enterprise)"
-    default: []
-
-  # Query limits
-  vlselect.search_max_concurrent_requests:
-    description: "Maximum number of concurrent search requests"
-    default: 0  # 0 means auto
-  vlselect.search_max_queue_duration:
-    description: "Maximum time request waits when concurrent limit is reached"
-    default: "10s"
-  vlselect.search_max_query_duration:
-    description: "Maximum duration for query execution"
-    default: "30s"
-  vlselect.search_max_query_len:
-    description: "Maximum search query length in bytes"
-    default: 16384
-  vlselect.search_max_memory_per_query:
-    description: "Maximum memory a single query may consume (0 unlimited)"
-    default: 0
-  vlselect.search_max_workers_per_query:
-    description: "Maximum CPU cores a single query can use"
-    default: 0  # 0 means auto
-  vlselect.search_max_samples_per_query:
-    description: "Maximum raw samples a query can process"
-    default: 1000000000
-  vlselect.search_max_samples_per_series:
-    description: "Maximum raw samples a query can scan per series"
-    default: 30000000
-  vlselect.search_max_points_per_timeseries:
-    description: "Maximum points per timeseries from query_range"
-    default: 30000
-  vlselect.search_max_points_subquery_per_timeseries:
-    description: "Maximum points per series for subquery"
-    default: 100000
-  vlselect.search_max_series_per_aggr_func:
-    description: "Maximum series an aggregate function can generate"
-    default: 1000000
-  vlselect.search_max_unique_timeseries:
-    description: "Maximum unique time series for query"
-    default: 0  # 0 means auto from vmstorage
-  vlselect.search_max_response_series:
-    description: "Maximum series returned from query (0 unlimited)"
-    default: 0
-  vlselect.search_inmemory_buf_size_bytes:
-    description: "Size for in-memory data blocks during search"
-    default: 0  # 0 means auto
-
-  # API limits
-  vlselect.search_max_export_duration:
-    description: "Maximum duration for /api/v1/export call"
-    default: "720h0m0s"
-  vlselect.search_max_export_series:
-    description: "Maximum series from export APIs"
-    default: 10000000
-  vlselect.search_max_federate_series:
-    description: "Maximum series from /federate"
-    default: 1000000
-  vlselect.search_max_series:
-    description: "Maximum series from /api/v1/series"
-    default: 30000
-  vlselect.search_max_tsdb_status_series:
-    description: "Maximum series for /api/v1/status/tsdb"
-    default: 10000000
-  vlselect.search_max_tsdb_status_top_n:
-    description: "Maximum topN value for /api/v1/status/tsdb"
-    default: 1000
-  vlselect.search_max_labels_api_series:
-    description: "Maximum series for labels API"
-    default: 1000000
-  vlselect.search_max_labels_api_duration:
-    description: "Maximum duration for labels API requests"
-    default: "5s"
-  vlselect.search_ignore_extra_filters_at_labels_api:
-    description: "Ignore extra filters at labels API"
-    default: false
-  vlselect.search_max_status_request_duration:
-    description: "Maximum duration for /api/v1/status/* requests"
-    default: "5m0s"
-  vlselect.search_max_delete_duration:
-    description: "Maximum duration for delete_series call"
-    default: "5m0s"
-  vlselect.search_max_delete_series:
-    description: "Maximum series for deletion"
-    default: 1000000
-  vlselect.search_max_binary_op_pushdown_label_values:
-    description: "Maximum label values for binary op pushdown filter"
-    default: 100
-  vlselect.search_max_tag_value_suffixes_per_search:
-    description: "Maximum number of tag value suffixes returned from /metrics/find"
-    default: 100000
-
-  # Graphite API settings
-  vlselect.search_graphite_max_points_per_series:
-    description: "Maximum points per series for Graphite render API"
-    default: 1000000
-  vlselect.search_graphite_max_series:
-    description: "Maximum series for Graphite queries"
-    default: 300000
-  vlselect.search_graphite_storage_step:
-    description: "Interval between datapoints for Graphite"
-    default: "10s"
-  vlselect.search_graphite_max_tag_keys:
-    description: "Maximum tag keys from Graphite tags API"
-    default: 100000
-  vlselect.search_graphite_max_tag_values:
-    description: "Maximum tag values from Graphite tags API"
-    default: 100000
-  vlselect.search_graphite_max_path_expression_len:
-    description: "Maximum length of Graphite pathExpression field"
-    default: 1024
-  vlselect.graphite_sanitize_metric_name:
-    description: "Sanitize metric names for ingested Graphite data"
-    default: false
-
-  # Lookback and staleness
-  vlselect.search_max_lookback:
-    description: "Synonym to -query.lookback-delta from Prometheus"
-    default: ""
-  vlselect.search_max_staleness_interval:
-    description: "Maximum interval for staleness calculations"
-    default: ""
-  vlselect.search_min_staleness_interval:
-    description: "Minimum interval for staleness calculations"
-    default: ""
-  vlselect.search_latency_offset:
-    description: "Time when data points become visible in query results"
-    default: "30s"
-  vlselect.search_max_step_for_points_adjustment:
-    description: "Maximum step when adjusting points with recent timestamps"
-    default: "1m0s"
-  vlselect.search_min_window_for_instant_rollup_optimization:
-    description: "Enable cache optimization for repeated instant queries"
-    default: "3h0m0s"
-
-  # Query stats
-  vlselect.search_query_stats_last_queries_count:
-    description: "Number of last queries to track in query stats"
-    default: 20000
-  vlselect.search_query_stats_min_query_duration:
-    description: "Minimum duration for queries to track in stats"
-    default: "1ms"
-
-  # Tenant cache
-  vlselect.search_tenant_cache_expire_duration:
-    description: "Expiry duration for caching tenants in memory"
-    default: "5m0s"
-
-  # vmalert proxy
-  vlselect.vmalert_proxy_url:
-    description: "Optional URL for proxying requests to vmalert"
-    default: ""
-
-  # vmui settings
-  vlselect.vmui_custom_dashboards_path:
-    description: "Optional path to vmui dashboards"
-    default: ""
-  vlselect.vmui_default_timezone:
-    description: "Default timezone for vmui"
-    default: ""
-
-  # Query tracing
-  vlselect.deny_query_tracing:
-    description: "Disable the ability to trace queries"
+  # Select concurrency settings
+  vlselect.select_disable_compression:
+    description: "Disable compression for select query responses from storage nodes"
     default: false
 
   # Logging settings
@@ -442,100 +134,75 @@ properties:
     description: "Output for logs (stderr, stdout)"
     default: "stderr"
   vlselect.logger_timezone:
-    description: "Timezone for timestamps in logs"
+    description: "Timezone for log timestamps"
     default: "UTC"
+  vlselect.logger_max_arg_len:
+    description: "Maximum length of a single logged argument"
+    default: 5000
+  vlselect.logger_disable_timestamps:
+    description: "Disable timestamps in logs"
+    default: false
   vlselect.logger_json_fields:
     description: "Rename fields in JSON formatted logs"
     default: ""
-  vlselect.logger_disable_timestamps:
-    description: "Disable writing timestamps in logs"
-    default: false
-  vlselect.logger_max_arg_len:
-    description: "Maximum length of single logged argument"
-    default: 5000
   vlselect.logger_errors_per_second_limit:
-    description: "Per-second limit on ERROR messages (0 disables limit)"
+    description: "Per-second limit on ERROR messages"
     default: 0
   vlselect.logger_warns_per_second_limit:
-    description: "Per-second limit on WARN messages (0 disables limit)"
+    description: "Per-second limit on WARN messages"
     default: 0
 
   # Metrics exposure
   vlselect.metrics_expose_metadata:
-    description: "Expose TYPE and HELP metadata at /metrics page"
+    description: "Expose TYPE and HELP metadata at /metrics"
     default: false
 
-  # Push metrics
+  # Push metrics settings
   vlselect.pushmetrics_url:
-    description: "URLs to push metrics exposed at /metrics page"
+    description: "URLs to push metrics to"
     default: []
   vlselect.pushmetrics_interval:
     description: "Interval for pushing metrics"
     default: "10s"
   vlselect.pushmetrics_extra_label:
-    description: "Extra labels to add to pushed metrics"
+    description: "Extra labels for pushed metrics"
     default: []
   vlselect.pushmetrics_header:
-    description: "HTTP headers to send when pushing metrics"
+    description: "HTTP headers for push requests"
     default: []
   vlselect.pushmetrics_disable_compression:
-    description: "Disable compression when pushing metrics"
+    description: "Disable compression for push requests"
     default: false
 
-  # TLS settings
+  # TLS Configuration
   vlselect.tls:
     description: "Enable TLS for incoming HTTP requests"
-    default: false
+    default: []
   vlselect.tls_cert_file:
     description: "Path to TLS certificate file"
-    default: ""
+    default: []
   vlselect.tls_key_file:
     description: "Path to TLS key file"
-    default: ""
+    default: []
   vlselect.tls_cipher_suites:
-    description: "List of TLS cipher suites"
+    description: "TLS cipher suites"
     default: []
   vlselect.tls_min_version:
-    description: "Minimum TLS version (TLS10, TLS11, TLS12, TLS13)"
-    default: ""
-  vlselect.mtls:
-    description: "Require valid client certificate for https requests (enterprise)"
-    default: false
-  vlselect.mtls_ca_file:
-    description: "Path to TLS Root CA for verifying client certificates (enterprise)"
-    default: ""
-
-  # TLS autocert (enterprise)
-  vlselect.tls_autocert_hosts:
-    description: "Hostnames for automatic Let's Encrypt certificates (enterprise)"
+    description: "Minimum TLS version"
     default: []
-  vlselect.tls_autocert_email:
-    description: "Contact email for Let's Encrypt certificates (enterprise)"
-    default: ""
-  vlselect.tls_autocert_cache_dir:
-    description: "Directory to store Let's Encrypt certificates (enterprise)"
-    default: ""
-
-  # License (enterprise)
-  vlselect.license:
-    description: "License key for VictoriaMetrics Enterprise"
-    default: ""
-  vlselect.license_file:
-    description: "Path to file with license key for VictoriaMetrics Enterprise"
-    default: ""
-  vlselect.license_file_reload_interval:
-    description: "Interval for reloading license file (enterprise)"
-    default: "1h0m0s"
-  vlselect.license_force_offline:
-    description: "Enable offline verification for license key (enterprise)"
-    default: false
+  vlselect.mtls:
+    description: "Require valid client certificate"
+    default: []
+  vlselect.mtls_ca_file:
+    description: "Path to TLS Root CA for client verification"
+    default: []
 
   # Environment flags
   vlselect.envflag_enable:
     description: "Enable reading flags from environment variables"
     default: false
   vlselect.envflag_prefix:
-    description: "Prefix for environment variables if envflag is enabled"
+    description: "Prefix for environment variables"
     default: ""
 
   # IPv6
@@ -545,8 +212,38 @@ properties:
 
   # File system settings
   vlselect.fs_disable_mmap:
-    description: "Use pread() instead of mmap() for reading data files"
+    description: "Use pread() instead of mmap()"
     default: false
   vlselect.filestream_disable_fadvise:
-    description: "Disable fadvise() syscall when reading large data files"
+    description: "Disable fadvise() syscall"
     default: false
+
+  # License Configuration
+  vlselect.license:
+    description: "License key for VictoriaMetrics Enterprise"
+    default: ""
+  vlselect.license_file:
+    description: "Path to license file"
+    default: ""
+  vlselect.license_file_reload_interval:
+    description: "Interval for reloading license file"
+    default: "1h"
+  vlselect.license_force_offline:
+    description: "Enable offline license verification"
+    default: false
+
+  # TLS Autocert Configuration
+  vlselect.tls_autocert_hosts:
+    description: "Hostnames for Let's Encrypt certificates"
+    default: []
+  vlselect.tls_autocert_email:
+    description: "Contact email for Let's Encrypt"
+    default: ""
+  vlselect.tls_autocert_cache_dir:
+    description: "Directory for Let's Encrypt certificates"
+    default: ""
+
+  # Elasticsearch compatibility
+  vlselect.elasticsearch_version:
+    description: "Elasticsearch version to report to client"
+    default: "8.9.0"

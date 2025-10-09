@@ -1,14 +1,17 @@
 ---
 processes:
   - name: vlstorage
-    executable: /var/vcap/packages/victoria-logs/bin/vmstorage
+    executable: /var/vcap/packages/victoria-logs/bin/victoria-logs-prod
     args:
-      # Core Configuration
+      # Core Configuration - VictoriaLogs storage mode (no -storageNode flag)
       - -storageDataPath=<%= p('vlstorage.storage_path') %>
       - -retentionPeriod=<%= p('vlstorage.retention_period') %>
       - -httpListenAddr=0.0.0.0:<%= p('vlstorage.http_port') %>
-      - -vminsertAddr=0.0.0.0:<%= p('vlstorage.vminsert_port') %>
-      - -vmselectAddr=0.0.0.0:<%= p('vlstorage.vmselect_port') %>
+
+      # Future retention
+      <% if p('vlstorage.future_retention') != "" %>
+      - -futureRetention=<%= p('vlstorage.future_retention') %>
+      <% end %>
 
       # Logging Configuration
       - -loggerLevel=<%= p('vlstorage.log_level') %>
@@ -28,8 +31,11 @@ processes:
       <% if p('vlstorage.logger_warns_per_second_limit') > 0 %>
       - -loggerWarnsPerSecondLimit=<%= p('vlstorage.logger_warns_per_second_limit') %>
       <% end %>
-      <% if p('vlstorage.log_new_series') %>
-      - -logNewSeries
+      <% if p('vlstorage.log_ingested_rows') %>
+      - -logIngestedRows
+      <% end %>
+      <% if p('vlstorage.log_new_streams') %>
+      - -logNewStreams
       <% end %>
 
       # Memory Configuration
@@ -43,12 +49,7 @@ processes:
       - -search.maxConcurrentRequests=<%= p('vlstorage.search_max_concurrent_requests') %>
       <% end %>
       - -search.maxQueueDuration=<%= p('vlstorage.search_max_queue_duration') %>
-      - -search.maxTagKeys=<%= p('vlstorage.search_max_tag_keys') %>
-      - -search.maxTagValues=<%= p('vlstorage.search_max_tag_values') %>
-      - -search.maxTagValueSuffixesPerSearch=<%= p('vlstorage.search_max_tag_value_suffixes_per_search') %>
-      <% if p('vlstorage.search_max_unique_timeseries') > 0 %>
-      - -search.maxUniqueTimeseries=<%= p('vlstorage.search_max_unique_timeseries') %>
-      <% end %>
+      - -search.maxQueryDuration=<%= p('vlstorage.search_max_query_duration') %>
 
       # Insert Configuration
       <% if p('vlstorage.max_concurrent_inserts') > 0 %>
@@ -75,25 +76,6 @@ processes:
       <% end %>
       <% if p('vlstorage.force_merge_auth_key') != "" %>
       - -forceMergeAuthKey=<%= p('vlstorage.force_merge_auth_key') %>
-      <% end %>
-      <% if p('vlstorage.snapshot_auth_key') != "" %>
-      - -snapshotAuthKey=<%= p('vlstorage.snapshot_auth_key') %>
-      <% end %>
-      <% if p('vlstorage.log_new_series_auth_key') != "" %>
-      - -logNewSeriesAuthKey=<%= p('vlstorage.log_new_series_auth_key') %>
-      <% end %>
-
-      # Deduplication
-      <% if p('vlstorage.dedup_min_scrape_interval') != "" %>
-      - -dedup.minScrapeInterval=<%= p('vlstorage.dedup_min_scrape_interval') %>
-      <% end %>
-
-      # Cardinality Limiting
-      <% if p('vlstorage.max_hourly_series') > 0 %>
-      - -storage.maxHourlySeries=<%= p('vlstorage.max_hourly_series') %>
-      <% end %>
-      <% if p('vlstorage.max_daily_series') > 0 %>
-      - -storage.maxDailySeries=<%= p('vlstorage.max_daily_series') %>
       <% end %>
 
       # HTTP Server Configuration
@@ -128,98 +110,15 @@ processes:
       <% end %>
 
       # Cache Configuration
-      - -cacheExpireDuration=<%= p('vlstorage.cache_expire_duration') %>
-      - -prevCacheRemovalPercent=<%= p('vlstorage.prev_cache_removal_percent') %>
       - -blockcache.missesBeforeCaching=<%= p('vlstorage.blockcache_misses_before_caching') %>
-
-      # Storage Cache Sizes
-      <% if p('vlstorage.storage_cache_size_indexdb_data_blocks') != "" %>
-      - -storage.cacheSizeIndexDBDataBlocks=<%= p('vlstorage.storage_cache_size_indexdb_data_blocks') %>
-      <% end %>
-      <% if p('vlstorage.storage_cache_size_indexdb_data_blocks_sparse') != "" %>
-      - -storage.cacheSizeIndexDBDataBlocksSparse=<%= p('vlstorage.storage_cache_size_indexdb_data_blocks_sparse') %>
-      <% end %>
-      <% if p('vlstorage.storage_cache_size_indexdb_index_blocks') != "" %>
-      - -storage.cacheSizeIndexDBIndexBlocks=<%= p('vlstorage.storage_cache_size_indexdb_index_blocks') %>
-      <% end %>
-      <% if p('vlstorage.storage_cache_size_indexdb_tag_filters') != "" %>
-      - -storage.cacheSizeIndexDBTagFilters=<%= p('vlstorage.storage_cache_size_indexdb_tag_filters') %>
-      <% end %>
-      <% if p('vlstorage.storage_cache_size_metric_names_stats') != "" %>
-      - -storage.cacheSizeMetricNamesStats=<%= p('vlstorage.storage_cache_size_metric_names_stats') %>
-      <% end %>
-      <% if p('vlstorage.storage_cache_size_storage_metric_name') != "" %>
-      - -storage.cacheSizeStorageMetricName=<%= p('vlstorage.storage_cache_size_storage_metric_name') %>
-      <% end %>
-      <% if p('vlstorage.storage_cache_size_storage_tsid') != "" %>
-      - -storage.cacheSizeStorageTSID=<%= p('vlstorage.storage_cache_size_storage_tsid') %>
-      <% end %>
 
       # Disk Space Management
       - -storage.minFreeDiskSpaceBytes=<%= p('vlstorage.storage_min_free_disk_space_bytes') %>
       - -inmemoryDataFlushInterval=<%= p('vlstorage.inmemory_data_flush_interval') %>
 
-      # Index Configuration
-      <% if p('vlstorage.disable_per_day_index') %>
-      - -disablePerDayIndex
-      <% end %>
-      - -storage.idbPrefillStart=<%= p('vlstorage.storage_idb_prefill_start') %>
-      - -storage.finalDedupScheduleCheckInterval=<%= p('vlstorage.storage_final_dedup_schedule_check_interval') %>
-      <% if !p('vlstorage.storage_track_metric_names_stats') %>
-      - -storage.trackMetricNamesStats=false
-      <% end %>
-
-      # Query Configuration
-      <% if p('vlstorage.deny_queries_outside_retention') %>
-      - -denyQueriesOutsideRetention
-      <% end %>
-      <% if p('vlstorage.deny_query_tracing') %>
-      - -denyQueryTracing
-      <% end %>
-
-      # Retention Configuration
-      <% if p('vlstorage.retention_timezone_offset') != "" %>
-      - -retentionTimezoneOffset=<%= p('vlstorage.retention_timezone_offset') %>
-      <% end %>
-      <% p('vlstorage.retention_filter').each do |filter| %>
-      - -retentionFilter=<%= filter %>
-      <% end %>
-      <% p('vlstorage.downsampling_period').each do |period| %>
-      - -downsampling.period=<%= period %>
-      <% end %>
-
-      # Snapshots
-      - -snapshotsMaxAge=<%= p('vlstorage.snapshots_max_age') %>
-
       # Network Configuration
       <% if p('vlstorage.enable_tcp6') %>
       - -enableTCP6
-      <% end %>
-
-      # RPC Configuration
-      <% if p('vlstorage.rpc_disable_compression') %>
-      - -rpc.disableCompression
-      <% end %>
-      - -rpc.handshakeTimeout=<%= p('vlstorage.rpc_handshake_timeout') %>
-
-      # Cluster TLS Configuration
-      <% if p('vlstorage.cluster_tls') %>
-      - -cluster.tls
-      <% end %>
-      <% if p('vlstorage.cluster_tls_ca_file') != "" %>
-      - -cluster.tlsCAFile=<%= p('vlstorage.cluster_tls_ca_file') %>
-      <% end %>
-      <% if p('vlstorage.cluster_tls_cert_file') != "" %>
-      - -cluster.tlsCertFile=<%= p('vlstorage.cluster_tls_cert_file') %>
-      <% end %>
-      <% if p('vlstorage.cluster_tls_key_file') != "" %>
-      - -cluster.tlsKeyFile=<%= p('vlstorage.cluster_tls_key_file') %>
-      <% end %>
-      <% p('vlstorage.cluster_tls_cipher_suites').each do |suite| %>
-      - -cluster.tlsCipherSuites=<%= suite %>
-      <% end %>
-      <% if p('vlstorage.cluster_tls_insecure_skip_verify') %>
-      - -cluster.tlsInsecureSkipVerify
       <% end %>
 
       # TLS Configuration
@@ -264,7 +163,9 @@ processes:
       <% p('vlstorage.pushmetrics_url').each do |url| %>
       - -pushmetrics.url=<%= url %>
       <% end %>
+      <% if !p('vlstorage.pushmetrics_url').empty? %>
       - -pushmetrics.interval=<%= p('vlstorage.pushmetrics_interval') %>
+      <% end %>
       <% p('vlstorage.pushmetrics_extra_label').each do |label| %>
       - -pushmetrics.extraLabel=<%= label %>
       <% end %>
@@ -281,7 +182,6 @@ processes:
       <% end %>
 
       # Misc Configuration
-      - -precisionBits=<%= p('vlstorage.precision_bits') %>
       - -internStringMaxLen=<%= p('vlstorage.intern_string_max_len') %>
       - -internStringCacheExpireDuration=<%= p('vlstorage.intern_string_cache_expire_duration') %>
       <% if p('vlstorage.intern_string_disable_cache') %>
@@ -299,7 +199,6 @@ processes:
       <% if p('vlstorage.fs_disable_mmap') %>
       - -fs.disableMmap
       <% end %>
-      - -storage.vminsertConnsShutdownDuration=<%= p('vlstorage.storage_vminsert_conns_shutdown_duration') %>
       <% p('vlstorage.http_listen_addr_use_proxy_protocol').each_with_index do |enabled, i| %>
         <% if enabled %>
       - -httpListenAddr.useProxyProtocol

@@ -1,10 +1,10 @@
 ---
 processes:
   - name: vlselect
-    executable: /var/vcap/packages/victoria-logs/bin/vmselect
+    executable: /var/vcap/packages/victoria-logs/bin/victoria-logs-prod
     args:
-      # Core HTTP settings
-      - -httpListenAddr=<%= p('vlselect.http_listen_addr') %>
+      # Core HTTP settings - VictoriaLogs select mode
+      - -httpListenAddr=0.0.0.0:<%= p('vlselect.http_port') %>
       <% if p('vlselect.http_listen_addr_use_proxy_protocol') -%>
       - -httpListenAddr.useProxyProtocol
       <% end -%>
@@ -413,9 +413,9 @@ processes:
       - -filestream.disableFadvise
       <% end %>
 
-      # Storage nodes from BOSH link
+      # Storage nodes from BOSH link - enables vlselect mode
       <% link("vlstorage").instances.each do |instance| %>
-      - -storageNode=<%= instance.address %>:<%= link("vlstorage").p("vlstorage.vmselect_port") %>
+      - -storageNode=<%= instance.address %>:<%= link("vlstorage").p("vlstorage.http_port") %>
       <% end %>
 
     persistent_disk: false

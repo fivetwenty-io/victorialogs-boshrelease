@@ -43,13 +43,12 @@ instance_groups:
     properties:
       vlstorage:
         # Network Configuration
-        http_port: 8482
-        vminsert_port: 8400
-        vmselect_port: 8401
+        http_port: 9491
 
         # Storage Configuration
         storage_path: "/var/vcap/store/vlstorage/data"
-        retention_period: "7"  # 7 days
+        retention_period: "7d"  # 7 days
+        future_retention: "2d"
 
         # Performance Tuning
         max_concurrent_inserts: 32
@@ -125,30 +124,21 @@ instance_groups:
     properties:
       vlinsert:
         # Core HTTP settings
-        http_listen_addr: ":8480"
+        http_port: 9481
         http_conn_timeout: "2m0s"
         http_idle_conn_timeout: "1m0s"
         http_max_graceful_shutdown_duration: "7s"
 
         # Core insert settings
-        max_concurrent_inserts: 32  # 0 means 2*cgroup.AvailableCPUs()
-        max_insert_request_size: 33554432  # 32MB
-        insert_max_queue_duration: "1m0s"
+        max_concurrent_inserts: 32
+        insert_max_queue_duration: "1m"
+        insert_max_line_size_bytes: 262144
+        insert_max_fields_per_line: 1000
+        insert_max_request_size: 67108864
 
-        # Replication and routing
-        replication_factor: 1
-        disable_rerouting: true
-        disable_rerouting_on_unavailable: false
-        drop_samples_on_overload: false
-
-        # Storage node settings
-        storage_node_discovery_interval: "2s"
-        vmstorage_dial_timeout: "3s"
-        vmstorage_user_timeout: "3s"
-
-        # RPC settings
-        rpc_disable_compression: false
-        rpc_handshake_timeout: "5s"
+        # Insert concurrency settings
+        insert_concurrency: 2
+        insert_disable_compression: false
 
         # Memory and cache settings
         memory_allowed_percent: 60
@@ -161,20 +151,10 @@ instance_groups:
         intern_string_cache_expire_duration: "6m0s"
         intern_string_disable_cache: false
 
-        # Label settings
-        sort_labels: false
-        max_labels_per_timeseries: 40
-        max_label_name_len: 256
-        max_label_value_len: 4096
-
-        # Import settings
-        import_max_line_len: 10485760  # 10MB
-
-        # Query settings
-        search_deny_partial_response: false
-
-        # Prometheus compatibility
-        use_prom_compatible_naming: false
+        # Log ingestion settings
+        log_ingested_rows: false
+        log_new_streams: false
+        default_msg_value: "missing _msg field"
 
         # Logging settings
         logger_level: "INFO"
@@ -239,23 +219,13 @@ instance_groups:
     properties:
       vlselect:
         # Core HTTP settings
-        http_listen_addr: ":8481"
+        http_port: 9471
         http_conn_timeout: "2m0s"
         http_idle_conn_timeout: "1m0s"
         http_max_graceful_shutdown_duration: "7s"
 
-        # Storage node settings
-        storage_node_discovery_interval: "2s"
-        vmstorage_dial_timeout: "3s"
-        vmstorage_user_timeout: "3s"
-
-        # RPC settings
-        rpc_handshake_timeout: "5s"
-
-        # Replication settings
-        replication_factor: {}
-        global_replication_factor: 1
-        search_skip_slow_replicas: false
+        # Select concurrency settings
+        select_disable_compression: false
 
         # Memory and cache settings
         memory_allowed_percent: 60
@@ -269,64 +239,13 @@ instance_groups:
         intern_string_disable_cache: false
 
         # Search/query settings
-        search_cache_timestamp_offset: "5m0s"
-        search_deny_partial_response: false
-        search_disable_cache: false
-        search_disable_implicit_conversion: false
-        search_reset_rollup_result_cache_on_startup: false
-        search_treat_dots_as_is_in_regexps: false
-        search_no_stale_markers: false
-        search_set_lookback_to_step: false
-        search_log_implicit_conversion: false
-        search_log_slow_query_duration: "5s"
+        search_allow_partial_response: false
+        default_parallel_readers: 32
 
         # Query limits
-        search_max_concurrent_requests: 16  # 0 means auto
+        search_max_concurrent_requests: 16
         search_max_queue_duration: "10s"
         search_max_query_duration: "30s"
-        search_max_query_len: 16384
-        search_max_samples_per_query: 1000000000
-        search_max_samples_per_series: 30000000
-        search_max_points_per_timeseries: 30000
-        search_max_points_subquery_per_timeseries: 100000
-        search_max_series_per_aggr_func: 1000000
-
-        # API limits
-        search_max_export_duration: "720h0m0s"
-        search_max_export_series: 10000000
-        search_max_federate_series: 1000000
-        search_max_series: 30000
-        search_max_tsdb_status_series: 10000000
-        search_max_tsdb_status_top_n: 1000
-        search_max_labels_api_series: 1000000
-        search_max_labels_api_duration: "5s"
-        search_ignore_extra_filters_at_labels_api: false
-        search_max_status_request_duration: "5m0s"
-        search_max_delete_duration: "5m0s"
-        search_max_delete_series: 1000000
-        search_max_binary_op_pushdown_label_values: 100
-        search_max_tag_value_suffixes_per_search: 100000
-
-        # Graphite API settings
-        search_graphite_max_points_per_series: 1000000
-        search_graphite_max_series: 300000
-        search_graphite_storage_step: "10s"
-        search_graphite_max_tag_keys: 100000
-        search_graphite_max_tag_values: 100000
-        search_graphite_max_path_expression_len: 1024
-        graphite_sanitize_metric_name: false
-
-        # Lookback and staleness
-        search_latency_offset: "30s"
-        search_max_step_for_points_adjustment: "1m0s"
-        search_min_window_for_instant_rollup_optimization: "3h0m0s"
-
-        # Query stats
-        search_query_stats_last_queries_count: 20000
-        search_query_stats_min_query_duration: "1ms"
-
-        # Tenant cache
-        search_tenant_cache_expire_duration: "5m0s"
 
         # Query tracing
         deny_query_tracing: false
