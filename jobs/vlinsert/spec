@@ -23,6 +23,9 @@ provides:
 
 properties:
   # Core HTTP settings
+  vlinsert.http_listen_addr:
+    description: "TCP address to listen for incoming HTTP requests"
+    default: ":9481"
   vlinsert.http_port:
     description: "Port for VictoriaLogs insert HTTP API"
     default: 9481
@@ -98,6 +101,9 @@ properties:
   vlinsert.insert_max_request_size:
     description: "Maximum size in bytes of a single insert request"
     default: 67108864
+  vlinsert.max_insert_request_size:
+    description: "Maximum size in bytes of a single insert request (alias for insert_max_request_size)"
+    default: 67108864
 
   # Log ingestion settings
   vlinsert.log_ingested_rows:
@@ -172,7 +178,7 @@ properties:
     default: 60
   vlinsert.memory_allowed_bytes:
     description: "Allowed size of system memory VictoriaLogs caches may occupy"
-    default: ""
+    default: 0
 
   # String interning settings
   vlinsert.intern_string_max_len:
@@ -312,3 +318,215 @@ properties:
   vlinsert.tls_autocert_cache_dir:
     description: "Directory for Let's Encrypt certificates"
     default: ""
+
+  # Replication and Routing
+  vlinsert.replication_factor:
+    description: "Replication factor for data"
+    default: 1
+  vlinsert.disable_rerouting:
+    description: "Disable automatic rerouting during unavailability"
+    default: false
+  vlinsert.disable_rerouting_on_unavailable:
+    description: "Disable rerouting when storage nodes are unavailable"
+    default: false
+  vlinsert.drop_samples_on_overload:
+    description: "Drop samples instead of queueing during overload"
+    default: false
+
+  # Storage Node Settings
+  vlinsert.storage_node_discovery_interval:
+    description: "Interval for discovering storage nodes"
+    default: "2s"
+  vlinsert.storage_node_filter:
+    description: "Filter for storage node discovery"
+    default: ""
+  vlinsert.vmstorage_dial_timeout:
+    description: "Timeout for dialing storage nodes"
+    default: "5s"
+  vlinsert.vmstorage_user_timeout:
+    description: "User timeout for storage node connections"
+    default: "0s"
+
+  # RPC Settings
+  vlinsert.rpc_disable_compression:
+    description: "Disable RPC compression"
+    default: false
+  vlinsert.rpc_handshake_timeout:
+    description: "RPC handshake timeout"
+    default: "3s"
+
+  # Cache Settings
+  vlinsert.cache_expire_duration:
+    description: "Duration before cache entries expire"
+    default: "30m"
+  vlinsert.prev_cache_removal_percent:
+    description: "Percentage of previous cache to remove"
+    default: 0.1
+  vlinsert.blockcache_misses_before_caching:
+    description: "Number of misses before caching a block"
+    default: 2
+
+  # Label Settings
+  vlinsert.sort_labels:
+    description: "Sort labels in metrics"
+    default: false
+  vlinsert.max_labels_per_timeseries:
+    description: "Maximum labels per timeseries"
+    default: 30
+  vlinsert.max_label_name_len:
+    description: "Maximum label name length"
+    default: 256
+  vlinsert.max_label_value_len:
+    description: "Maximum label value length"
+    default: 16384
+
+  # Cluster Native Settings
+  vlinsert.cluster_native_listen_addr:
+    description: "Address for cluster native protocol"
+    default: ""
+  vlinsert.cluster_native_vminsert_conns_shutdown_duration:
+    description: "Duration for shutting down vminsert connections"
+    default: "25s"
+
+  # Cluster TLS Settings
+  vlinsert.cluster_tls:
+    description: "Enable TLS for cluster communication"
+    default: false
+  vlinsert.cluster_tls_ca_file:
+    description: "CA file for cluster TLS"
+    default: ""
+  vlinsert.cluster_tls_cert_file:
+    description: "Certificate file for cluster TLS"
+    default: ""
+  vlinsert.cluster_tls_key_file:
+    description: "Key file for cluster TLS"
+    default: ""
+  vlinsert.cluster_tls_insecure_skip_verify:
+    description: "Skip TLS verification for cluster"
+    default: false
+
+  # Graphite Protocol Settings
+  vlinsert.graphite_listen_addr:
+    description: "Address to listen for Graphite protocol"
+    default: ""
+  vlinsert.graphite_listen_addr_use_proxy_protocol:
+    description: "Use proxy protocol for Graphite"
+    default: false
+  vlinsert.graphite_trim_timestamp:
+    description: "Trim timestamp precision for Graphite"
+    default: "1s"
+  vlinsert.graphite_sanitize_metric_name:
+    description: "Sanitize Graphite metric names"
+    default: false
+
+  # InfluxDB Protocol Settings
+  vlinsert.influx_listen_addr:
+    description: "Address to listen for InfluxDB protocol"
+    default: ""
+  vlinsert.influx_listen_addr_use_proxy_protocol:
+    description: "Use proxy protocol for InfluxDB"
+    default: false
+  vlinsert.influx_database_names:
+    description: "InfluxDB database names to accept"
+    default: []
+  vlinsert.influxdb_label:
+    description: "Label for InfluxDB database"
+    default: "db"
+  vlinsert.influx_measurement_field_separator:
+    description: "Separator between measurement and field"
+    default: "_"
+  vlinsert.influx_skip_measurement:
+    description: "Skip measurement name in labels"
+    default: false
+  vlinsert.influx_skip_single_field:
+    description: "Skip field name for single field"
+    default: false
+  vlinsert.influx_trim_timestamp:
+    description: "Trim timestamp precision for InfluxDB"
+    default: "1ms"
+  vlinsert.influx_max_line_size:
+    description: "Maximum line size for InfluxDB"
+    default: 262144
+  vlinsert.influx_max_request_size:
+    description: "Maximum request size for InfluxDB"
+    default: 67108864
+  vlinsert.influx_force_stream_mode:
+    description: "Force stream mode for InfluxDB"
+    default: false
+
+  # OpenTSDB Protocol Settings
+  vlinsert.opentsdb_listen_addr:
+    description: "Address to listen for OpenTSDB protocol"
+    default: ""
+  vlinsert.opentsdb_listen_addr_use_proxy_protocol:
+    description: "Use proxy protocol for OpenTSDB"
+    default: false
+  vlinsert.opentsdb_http_listen_addr:
+    description: "HTTP address for OpenTSDB protocol"
+    default: ""
+  vlinsert.opentsdb_http_listen_addr_use_proxy_protocol:
+    description: "Use proxy protocol for OpenTSDB HTTP"
+    default: false
+  vlinsert.opentsdb_trim_timestamp:
+    description: "Trim timestamp precision for OpenTSDB"
+    default: "1s"
+  vlinsert.opentsdb_http_trim_timestamp:
+    description: "Trim timestamp precision for OpenTSDB HTTP"
+    default: "1ms"
+  vlinsert.opentsdb_http_max_insert_request_size:
+    description: "Maximum insert request size for OpenTSDB HTTP"
+    default: 33554432
+
+  # CSV Import Settings
+  vlinsert.csv_trim_timestamp:
+    description: "Trim timestamp precision for CSV"
+    default: "1ms"
+
+  # DataDog Protocol Settings
+  vlinsert.datadog_max_insert_request_size:
+    description: "Maximum insert request size for DataDog"
+    default: 67108864
+  vlinsert.datadog_sanitize_metric_name:
+    description: "Sanitize DataDog metric names"
+    default: false
+
+  # NewRelic Protocol Settings
+  vlinsert.newrelic_max_insert_request_size:
+    description: "Maximum insert request size for NewRelic"
+    default: 67108864
+
+  # OpenTelemetry Protocol Settings
+  vlinsert.opentelemetry_use_prometheus_naming:
+    description: "Use Prometheus naming for OpenTelemetry"
+    default: false
+
+  # Import Settings
+  vlinsert.import_max_line_len:
+    description: "Maximum line length for imports"
+    default: 10485760
+
+  # Relabeling Settings
+  vlinsert.relabel_config:
+    description: "Path to relabel config file"
+    default: ""
+  vlinsert.relabel_config_check_interval:
+    description: "Interval to check relabel config"
+    default: ""
+
+  # Metadata Settings
+  vlinsert.enable_metadata:
+    description: "Enable metadata endpoints"
+    default: false
+
+  # Query Settings
+  vlinsert.search_deny_partial_response:
+    description: "Deny partial responses in search"
+    default: false
+  vlinsert.deny_query_tracing:
+    description: "Deny query tracing"
+    default: false
+
+  # Prometheus Compatibility
+  vlinsert.use_prom_compatible_naming:
+    description: "Use Prometheus compatible naming"
+    default: false

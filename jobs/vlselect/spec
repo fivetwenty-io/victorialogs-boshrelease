@@ -23,6 +23,9 @@ provides:
 
 properties:
   # Core HTTP settings
+  vlselect.http_listen_addr:
+    description: "TCP address to listen for incoming HTTP requests"
+    default: ":9471"
   vlselect.http_port:
     description: "Port for VictoriaLogs select/query HTTP API"
     default: 9471
@@ -81,6 +84,15 @@ properties:
   vlselect.pprof_auth_key:
     description: "Auth key for /debug/pprof/* endpoints"
     default: ""
+  vlselect.delete_auth_key:
+    description: "Auth key for delete endpoints"
+    default: ""
+  vlselect.reset_cache_auth_key:
+    description: "Auth key for cache reset endpoint"
+    default: ""
+  vlselect.metric_names_stats_reset_auth_key:
+    description: "Auth key for metric names stats reset endpoint"
+    default: ""
 
   # Search/query settings
   vlselect.search_max_concurrent_requests:
@@ -105,7 +117,7 @@ properties:
     default: 60
   vlselect.memory_allowed_bytes:
     description: "Allowed size of system memory VictoriaLogs caches may occupy"
-    default: ""
+    default: 0
 
   # String interning settings
   vlselect.intern_string_max_len:
@@ -247,3 +259,314 @@ properties:
   vlselect.elasticsearch_version:
     description: "Elasticsearch version to report to client"
     default: "8.9.0"
+
+  # Cluster Native Settings
+  vlselect.cluster_native_listen_addr:
+    description: "Address for cluster native protocol"
+    default: ""
+  vlselect.cluster_native_disable_compression:
+    description: "Disable compression for cluster native protocol"
+    default: false
+  vlselect.cluster_native_max_concurrent_requests:
+    description: "Maximum concurrent requests for cluster native"
+    default: 100
+  vlselect.cluster_native_max_queue_duration:
+    description: "Maximum queue duration for cluster native"
+    default: "10s"
+  vlselect.cluster_native_max_tag_keys:
+    description: "Maximum tag keys for cluster native"
+    default: 100000
+  vlselect.cluster_native_max_tag_values:
+    description: "Maximum tag values for cluster native"
+    default: 100000
+  vlselect.cluster_native_max_tag_value_suffixes:
+    description: "Maximum tag value suffixes for cluster native"
+    default: 100000
+  vlselect.cluster_native_tls:
+    description: "Enable TLS for cluster native"
+    default: false
+  vlselect.cluster_native_tls_ca_file:
+    description: "CA file for cluster native TLS"
+    default: ""
+  vlselect.cluster_native_tls_cert_file:
+    description: "Certificate file for cluster native TLS"
+    default: ""
+  vlselect.cluster_native_tls_key_file:
+    description: "Key file for cluster native TLS"
+    default: ""
+  vlselect.cluster_native_tls_cipher_suites:
+    description: "Cipher suites for cluster native TLS"
+    default: []
+  vlselect.cluster_native_tls_insecure_skip_verify:
+    description: "Skip TLS verification for cluster native"
+    default: false
+
+  # Storage Node Settings
+  vlselect.storage_node_discovery_interval:
+    description: "Interval for discovering storage nodes"
+    default: "2s"
+  vlselect.storage_node_filter:
+    description: "Filter for storage node discovery"
+    default: ""
+  vlselect.vmstorage_dial_timeout:
+    description: "Timeout for dialing storage nodes"
+    default: "5s"
+  vlselect.vmstorage_user_timeout:
+    description: "User timeout for storage node connections"
+    default: "0s"
+  vlselect.select_node:
+    description: "Other vmselect nodes to coordinate with"
+    default: []
+
+  # RPC Settings
+  vlselect.rpc_handshake_timeout:
+    description: "RPC handshake timeout"
+    default: "3s"
+
+  # Cluster TLS Settings
+  vlselect.cluster_tls:
+    description: "Enable TLS for cluster communication"
+    default: false
+  vlselect.cluster_tls_ca_file:
+    description: "CA file for cluster TLS"
+    default: ""
+  vlselect.cluster_tls_cert_file:
+    description: "Certificate file for cluster TLS"
+    default: ""
+  vlselect.cluster_tls_key_file:
+    description: "Key file for cluster TLS"
+    default: ""
+  vlselect.cluster_tls_insecure_skip_verify:
+    description: "Skip TLS verification for cluster"
+    default: false
+
+  # Replication Settings
+  vlselect.replication_factor:
+    description: "Replication factor per group"
+    default: {}
+  vlselect.global_replication_factor:
+    description: "Global replication factor"
+    default: 0
+  vlselect.search_skip_slow_replicas:
+    description: "Skip slow replicas during search"
+    default: false
+
+  # Cache Settings
+  vlselect.cache_expire_duration:
+    description: "Duration before cache entries expire"
+    default: "30m"
+  vlselect.prev_cache_removal_percent:
+    description: "Percentage of previous cache to remove"
+    default: 0.1
+  vlselect.blockcache_misses_before_caching:
+    description: "Number of misses before caching a block"
+    default: 2
+  vlselect.cache_data_path:
+    description: "Path for cache data"
+    default: ""
+
+  # Deduplication Settings
+  vlselect.dedup_min_scrape_interval:
+    description: "Minimum scrape interval for deduplication"
+    default: ""
+
+  # Downsampling Settings (Enterprise)
+  vlselect.downsampling_period:
+    description: "Downsampling periods"
+    default: []
+
+  # Search Cache Settings
+  vlselect.search_cache_timestamp_offset:
+    description: "Timestamp offset for search cache"
+    default: "5m"
+  vlselect.search_deny_partial_response:
+    description: "Deny partial responses in search"
+    default: false
+  vlselect.search_disable_cache:
+    description: "Disable search cache"
+    default: false
+  vlselect.search_disable_implicit_conversion:
+    description: "Disable implicit conversion"
+    default: false
+  vlselect.search_reset_rollup_result_cache_on_startup:
+    description: "Reset rollup result cache on startup"
+    default: false
+  vlselect.search_treat_dots_as_is_in_regexps:
+    description: "Treat dots as literals in regexps"
+    default: false
+  vlselect.search_no_stale_markers:
+    description: "Disable stale markers"
+    default: false
+  vlselect.search_set_lookback_to_step:
+    description: "Set lookback to step"
+    default: false
+  vlselect.search_log_implicit_conversion:
+    description: "Log implicit conversions"
+    default: false
+
+  # Query Logging Settings
+  vlselect.search_log_slow_query_duration:
+    description: "Duration threshold for slow query logging"
+    default: "5s"
+  vlselect.search_log_query_memory_usage:
+    description: "Memory usage threshold for query logging"
+    default: 0
+  vlselect.search_log_slow_query_stats:
+    description: "Stats to log for slow queries"
+    default: ""
+  vlselect.search_log_slow_query_stats_headers:
+    description: "Headers to log for slow query stats"
+    default: []
+
+  # Query Limits
+  vlselect.search_max_query_len:
+    description: "Maximum query length"
+    default: 16384
+  vlselect.search_max_memory_per_query:
+    description: "Maximum memory per query"
+    default: 0
+  vlselect.search_max_workers_per_query:
+    description: "Maximum workers per query"
+    default: 0
+  vlselect.search_max_samples_per_query:
+    description: "Maximum samples per query"
+    default: 1000000000
+  vlselect.search_max_samples_per_series:
+    description: "Maximum samples per series"
+    default: 30000000
+  vlselect.search_max_points_per_timeseries:
+    description: "Maximum points per timeseries"
+    default: 30000
+  vlselect.search_max_points_subquery_per_timeseries:
+    description: "Maximum points per subquery timeseries"
+    default: 100000
+  vlselect.search_max_series_per_aggr_func:
+    description: "Maximum series per aggregation function"
+    default: 1000000
+  vlselect.search_max_unique_timeseries:
+    description: "Maximum unique timeseries"
+    default: 0
+  vlselect.search_max_response_series:
+    description: "Maximum response series"
+    default: 0
+  vlselect.search_inmemory_buf_size_bytes:
+    description: "In-memory buffer size in bytes"
+    default: 0
+
+  # API Limits
+  vlselect.search_max_export_duration:
+    description: "Maximum export duration"
+    default: "720h"
+  vlselect.search_max_export_series:
+    description: "Maximum export series"
+    default: 10000000
+  vlselect.search_max_federate_series:
+    description: "Maximum federate series"
+    default: 1000000
+  vlselect.search_max_series:
+    description: "Maximum series"
+    default: 30000
+  vlselect.search_max_tsdb_status_series:
+    description: "Maximum TSDB status series"
+    default: 10000000
+  vlselect.search_max_tsdb_status_top_n:
+    description: "Maximum TSDB status top N"
+    default: 20
+  vlselect.search_max_labels_api_series:
+    description: "Maximum labels API series"
+    default: 1000000
+  vlselect.search_max_labels_api_duration:
+    description: "Maximum labels API duration"
+    default: "5s"
+  vlselect.search_ignore_extra_filters_at_labels_api:
+    description: "Ignore extra filters at labels API"
+    default: false
+  vlselect.search_max_status_request_duration:
+    description: "Maximum status request duration"
+    default: "5m"
+  vlselect.search_max_delete_duration:
+    description: "Maximum delete duration"
+    default: "0"
+  vlselect.search_max_delete_series:
+    description: "Maximum delete series"
+    default: 0
+  vlselect.search_max_binary_op_pushdown_label_values:
+    description: "Maximum binary op pushdown label values"
+    default: 0
+  vlselect.search_max_tag_value_suffixes_per_search:
+    description: "Maximum tag value suffixes per search"
+    default: 100000
+
+  # Graphite API Settings
+  vlselect.search_graphite_max_points_per_series:
+    description: "Maximum points per series for Graphite"
+    default: 1000000
+  vlselect.search_graphite_max_series:
+    description: "Maximum series for Graphite"
+    default: 300000
+  vlselect.search_graphite_storage_step:
+    description: "Storage step for Graphite"
+    default: "10s"
+  vlselect.search_graphite_max_tag_keys:
+    description: "Maximum tag keys for Graphite"
+    default: 100000
+  vlselect.search_graphite_max_tag_values:
+    description: "Maximum tag values for Graphite"
+    default: 100000
+  vlselect.search_graphite_max_path_expression_len:
+    description: "Maximum path expression length for Graphite"
+    default: 10000
+  vlselect.graphite_sanitize_metric_name:
+    description: "Sanitize Graphite metric names"
+    default: false
+
+  # Lookback and Staleness Settings
+  vlselect.search_max_lookback:
+    description: "Maximum lookback"
+    default: ""
+  vlselect.search_max_staleness_interval:
+    description: "Maximum staleness interval"
+    default: ""
+  vlselect.search_min_staleness_interval:
+    description: "Minimum staleness interval"
+    default: ""
+  vlselect.search_latency_offset:
+    description: "Latency offset"
+    default: "30s"
+  vlselect.search_max_step_for_points_adjustment:
+    description: "Maximum step for points adjustment"
+    default: "1m"
+  vlselect.search_min_window_for_instant_rollup_optimization:
+    description: "Minimum window for instant rollup optimization"
+    default: "3h"
+
+  # Query Stats Settings
+  vlselect.search_query_stats_last_queries_count:
+    description: "Number of last queries to keep in stats"
+    default: 20
+  vlselect.search_query_stats_min_query_duration:
+    description: "Minimum query duration for stats"
+    default: "1ms"
+
+  # Tenant Cache Settings
+  vlselect.search_tenant_cache_expire_duration:
+    description: "Tenant cache expiration duration"
+    default: "5m"
+
+  # vmalert Proxy Settings
+  vlselect.vmalert_proxy_url:
+    description: "Proxy URL for vmalert"
+    default: ""
+
+  # VMUI Settings
+  vlselect.vmui_custom_dashboards_path:
+    description: "Path to custom VMUI dashboards"
+    default: ""
+  vlselect.vmui_default_timezone:
+    description: "Default timezone for VMUI"
+    default: ""
+
+  # Query Tracing
+  vlselect.deny_query_tracing:
+    description: "Deny query tracing"
+    default: false
