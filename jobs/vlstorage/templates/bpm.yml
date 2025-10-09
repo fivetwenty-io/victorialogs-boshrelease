@@ -212,7 +212,6 @@ processes:
       <% if p('vlstorage.license_file') != "" %>
       - -licenseFile=<%= p('vlstorage.license_file') %>
       <% end %>
-      - -licenseFile.reloadInterval=<%= p('vlstorage.license_file_reload_interval') %>
       <% if p('vlstorage.license_force_offline') %>
       - -license.forceOffline
       <% end %>

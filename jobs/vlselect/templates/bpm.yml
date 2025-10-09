@@ -385,9 +385,6 @@ processes:
       <% if p('vlselect.license_file') != "" %>
       - -licenseFile=<%= p('vlselect.license_file') %>
       <% end %>
-      <% if p('vlselect.license_file_reload_interval') != "1h0m0s" %>
-      - -licenseFile.reloadInterval=<%= p('vlselect.license_file_reload_interval') %>
-      <% end %>
       <% if p('vlselect.license_force_offline') %>
       - -license.forceOffline
       <% end %>
