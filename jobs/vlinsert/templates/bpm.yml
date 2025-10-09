@@ -1,7 +1,356 @@
 ---
 processes:
   - name: vlinsert
-    executable: /var/vcap/jobs/vlinsert/bin/vlinsert
+    executable: /var/vcap/packages/victoria-logs/bin/vminsert
+    args:
+      # Core HTTP settings
+      - -httpListenAddr=<%= p('vlinsert.http_listen_addr') %>
+      <% if p('vlinsert.http_listen_addr_use_proxy_protocol') -%>
+      - -httpListenAddr.useProxyProtocol
+      <% end -%>
+      <% if p('vlinsert.http_path_prefix') != "" -%>
+      - -http.pathPrefix=<%= p('vlinsert.http_path_prefix') %>
+      <% end -%>
+      - -http.connTimeout=<%= p('vlinsert.http_conn_timeout') %>
+      - -http.idleConnTimeout=<%= p('vlinsert.http_idle_conn_timeout') %>
+      - -http.maxGracefulShutdownDuration=<%= p('vlinsert.http_max_graceful_shutdown_duration') %>
+      <% if p('vlinsert.http_shutdown_delay') != "" -%>
+      - -http.shutdownDelay=<%= p('vlinsert.http_shutdown_delay') %>
+      <% end -%>
+      <% if p('vlinsert.http_disable_response_compression') -%>
+      - -http.disableResponseCompression
+      <% end -%>
+      <% if p('vlinsert.http_disable_keepalive') -%>
+      - -http.disableKeepAlive
+      <% end -%>
+      <% if p('vlinsert.http_disable_cors') -%>
+      - -http.disableCORS
+      <% end -%>
+
+      # HTTP Security headers
+      <% if p('vlinsert.http_header_csp') != "" -%>
+      - -http.header.csp=<%= p('vlinsert.http_header_csp') %>
+      <% end -%>
+      <% if p('vlinsert.http_header_frame_options') != "" -%>
+      - -http.header.frameOptions=<%= p('vlinsert.http_header_frame_options') %>
+      <% end -%>
+      <% if p('vlinsert.http_header_hsts') != "" -%>
+      - -http.header.hsts=<%= p('vlinsert.http_header_hsts') %>
+      <% end -%>
+
+      # Authentication
+      <% if p('vlinsert.http_auth_username') != "" && p('vlinsert.http_auth_password') != "" -%>
+      - -httpAuth.username=<%= p('vlinsert.http_auth_username') %>
+      - -httpAuth.password=<%= p('vlinsert.http_auth_password') %>
+      <% end -%>
+      <% if p('vlinsert.metrics_auth_key') != "" -%>
+      - -metricsAuthKey=<%= p('vlinsert.metrics_auth_key') %>
+      <% end -%>
+      <% if p('vlinsert.flags_auth_key') != "" -%>
+      - -flagsAuthKey=<%= p('vlinsert.flags_auth_key') %>
+      <% end -%>
+      <% if p('vlinsert.pprof_auth_key') != "" -%>
+      - -pprofAuthKey=<%= p('vlinsert.pprof_auth_key') %>
+      <% end -%>
+
+      # Core insert settings
+      <% if p('vlinsert.max_concurrent_inserts') > 0 -%>
+      - -maxConcurrentInserts=<%= p('vlinsert.max_concurrent_inserts') %>
+      <% end -%>
+      - -maxInsertRequestSize=<%= p('vlinsert.max_insert_request_size') %>
+      - -insert.maxQueueDuration=<%= p('vlinsert.insert_max_queue_duration') %>
+
+      # Replication and routing
+      - -replicationFactor=<%= p('vlinsert.replication_factor') %>
+      <% if p('vlinsert.disable_rerouting') -%>
+      - -disableRerouting
+      <% end -%>
+      <% if p('vlinsert.disable_rerouting_on_unavailable') -%>
+      - -disableReroutingOnUnavailable
+      <% end -%>
+      <% if p('vlinsert.drop_samples_on_overload') -%>
+      - -dropSamplesOnOverload
+      <% end -%>
+
+      # Storage node settings
+      <% if p('vlinsert.storage_node_discovery_interval') != "2s" -%>
+      - -storageNode.discoveryInterval=<%= p('vlinsert.storage_node_discovery_interval') %>
+      <% end -%>
+      <% if p('vlinsert.storage_node_filter') != "" -%>
+      - -storageNode.filter=<%= p('vlinsert.storage_node_filter') %>
+      <% end -%>
+      - -vmstorageDialTimeout=<%= p('vlinsert.vmstorage_dial_timeout') %>
+      - -vmstorageUserTimeout=<%= p('vlinsert.vmstorage_user_timeout') %>
+
+      # RPC settings
+      <% if p('vlinsert.rpc_disable_compression') -%>
+      - -rpc.disableCompression
+      <% end -%>
+      - -rpc.handshakeTimeout=<%= p('vlinsert.rpc_handshake_timeout') %>
+
+      # Memory and cache settings
+      - -memory.allowedPercent=<%= p('vlinsert.memory_allowed_percent') %>
+      <% if p('vlinsert.memory_allowed_bytes') > 0 -%>
+      - -memory.allowedBytes=<%= p('vlinsert.memory_allowed_bytes') %>
+      <% end -%>
+      - -cacheExpireDuration=<%= p('vlinsert.cache_expire_duration') %>
+      - -prevCacheRemovalPercent=<%= p('vlinsert.prev_cache_removal_percent') %>
+      - -blockcache.missesBeforeCaching=<%= p('vlinsert.blockcache_misses_before_caching') %>
+
+      # String interning settings
+      - -internStringMaxLen=<%= p('vlinsert.intern_string_max_len') %>
+      - -internStringCacheExpireDuration=<%= p('vlinsert.intern_string_cache_expire_duration') %>
+      <% if p('vlinsert.intern_string_disable_cache') -%>
+      - -internStringDisableCache
+      <% end -%>
+
+      # Label settings
+      <% if p('vlinsert.sort_labels') -%>
+      - -sortLabels
+      <% end -%>
+      - -maxLabelsPerTimeseries=<%= p('vlinsert.max_labels_per_timeseries') %>
+      - -maxLabelNameLen=<%= p('vlinsert.max_label_name_len') %>
+      - -maxLabelValueLen=<%= p('vlinsert.max_label_value_len') %>
+
+      # Cluster settings
+      <% if p('vlinsert.cluster_native_listen_addr') != "" -%>
+      - -clusternativeListenAddr=<%= p('vlinsert.cluster_native_listen_addr') %>
+      <% end -%>
+      - -clusternative.vminsertConnsShutdownDuration=<%= p('vlinsert.cluster_native_vminsert_conns_shutdown_duration') %>
+      <% if p('vlinsert.cluster_tls') -%>
+      - -cluster.tls
+      <% end -%>
+      <% if p('vlinsert.cluster_tls_ca_file') != "" -%>
+      - -cluster.tlsCAFile=<%= p('vlinsert.cluster_tls_ca_file') %>
+      <% end -%>
+      <% if p('vlinsert.cluster_tls_cert_file') != "" -%>
+      - -cluster.tlsCertFile=<%= p('vlinsert.cluster_tls_cert_file') %>
+      <% end -%>
+      <% if p('vlinsert.cluster_tls_key_file') != "" -%>
+      - -cluster.tlsKeyFile=<%= p('vlinsert.cluster_tls_key_file') %>
+      <% end -%>
+      <% if p('vlinsert.cluster_tls_insecure_skip_verify') -%>
+      - -cluster.tlsInsecureSkipVerify
+      <% end -%>
+
+      # Graphite protocol settings
+      <% if p('vlinsert.graphite_listen_addr') != "" -%>
+      - -graphiteListenAddr=<%= p('vlinsert.graphite_listen_addr') %>
+      <% end -%>
+      <% if p('vlinsert.graphite_listen_addr_use_proxy_protocol') -%>
+      - -graphiteListenAddr.useProxyProtocol
+      <% end -%>
+      - -graphiteTrimTimestamp=<%= p('vlinsert.graphite_trim_timestamp') %>
+      <% if p('vlinsert.graphite_sanitize_metric_name') -%>
+      - -graphite.sanitizeMetricName
+      <% end -%>
+
+      # InfluxDB protocol settings
+      <% if p('vlinsert.influx_listen_addr') != "" -%>
+      - -influxListenAddr=<%= p('vlinsert.influx_listen_addr') %>
+      <% end -%>
+      <% if p('vlinsert.influx_listen_addr_use_proxy_protocol') -%>
+      - -influxListenAddr.useProxyProtocol
+      <% end -%>
+      <% if p('vlinsert.influx_database_names').length > 0 -%>
+      - -influx.databaseNames=<%= p('vlinsert.influx_database_names').join(',') %>
+      <% end -%>
+      - -influxDBLabel=<%= p('vlinsert.influxdb_label') %>
+      - -influxMeasurementFieldSeparator=<%= p('vlinsert.influx_measurement_field_separator') %>
+      <% if p('vlinsert.influx_skip_measurement') -%>
+      - -influxSkipMeasurement
+      <% end -%>
+      <% if p('vlinsert.influx_skip_single_field') -%>
+      - -influxSkipSingleField
+      <% end -%>
+      - -influxTrimTimestamp=<%= p('vlinsert.influx_trim_timestamp') %>
+      - -influx.maxLineSize=<%= p('vlinsert.influx_max_line_size') %>
+      - -influx.maxRequestSize=<%= p('vlinsert.influx_max_request_size') %>
+      <% if p('vlinsert.influx_force_stream_mode') -%>
+      - -influx.forceStreamMode
+      <% end -%>
+
+      # OpenTSDB protocol settings
+      <% if p('vlinsert.opentsdb_listen_addr') != "" -%>
+      - -opentsdbListenAddr=<%= p('vlinsert.opentsdb_listen_addr') %>
+      <% end -%>
+      <% if p('vlinsert.opentsdb_listen_addr_use_proxy_protocol') -%>
+      - -opentsdbListenAddr.useProxyProtocol
+      <% end -%>
+      <% if p('vlinsert.opentsdb_http_listen_addr') != "" -%>
+      - -opentsdbHTTPListenAddr=<%= p('vlinsert.opentsdb_http_listen_addr') %>
+      <% end -%>
+      <% if p('vlinsert.opentsdb_http_listen_addr_use_proxy_protocol') -%>
+      - -opentsdbHTTPListenAddr.useProxyProtocol
+      <% end -%>
+      - -opentsdbTrimTimestamp=<%= p('vlinsert.opentsdb_trim_timestamp') %>
+      - -opentsdbhttpTrimTimestamp=<%= p('vlinsert.opentsdb_http_trim_timestamp') %>
+      - -opentsdbhttp.maxInsertRequestSize=<%= p('vlinsert.opentsdb_http_max_insert_request_size') %>
+
+      # CSV import settings
+      - -csvTrimTimestamp=<%= p('vlinsert.csv_trim_timestamp') %>
+
+      # DataDog protocol settings
+      - -datadog.maxInsertRequestSize=<%= p('vlinsert.datadog_max_insert_request_size') %>
+      <% if p('vlinsert.datadog_sanitize_metric_name') -%>
+      - -datadog.sanitizeMetricName
+      <% end -%>
+
+      # NewRelic protocol settings
+      - -newrelic.maxInsertRequestSize=<%= p('vlinsert.newrelic_max_insert_request_size') %>
+
+      # OpenTelemetry protocol settings
+      - -opentelemetry.maxRequestSize=<%= p('vlinsert.opentelemetry_max_request_size') %>
+      <% if p('vlinsert.opentelemetry_use_prometheus_naming') -%>
+      - -opentelemetry.usePrometheusNaming
+      <% end -%>
+
+      # Import settings
+      - -import.maxLineLen=<%= p('vlinsert.import_max_line_len') %>
+
+      # Relabeling
+      <% if p('vlinsert.relabel_config') != "" -%>
+      - -relabelConfig=<%= p('vlinsert.relabel_config') %>
+      <% end -%>
+      <% if p('vlinsert.relabel_config_check_interval') != "" -%>
+      - -relabelConfigCheckInterval=<%= p('vlinsert.relabel_config_check_interval') %>
+      <% end -%>
+
+      # Metadata
+      <% if p('vlinsert.enable_metadata') -%>
+      - -enableMetadata
+      <% end -%>
+
+      # Query settings
+      <% if p('vlinsert.search_deny_partial_response') -%>
+      - -search.denyPartialResponse
+      <% end -%>
+
+      # Prometheus compatibility
+      <% if p('vlinsert.use_prom_compatible_naming') -%>
+      - -usePromCompatibleNaming
+      <% end -%>
+
+      # Logging settings
+      - -loggerLevel=<%= p('vlinsert.logger_level') %>
+      - -loggerFormat=<%= p('vlinsert.logger_format') %>
+      - -loggerOutput=<%= p('vlinsert.logger_output') %>
+      - -loggerTimezone=<%= p('vlinsert.logger_timezone') %>
+      <% if p('vlinsert.logger_json_fields') != "" -%>
+      - -loggerJSONFields=<%= p('vlinsert.logger_json_fields') %>
+      <% end -%>
+      <% if p('vlinsert.logger_disable_timestamps') -%>
+      - -loggerDisableTimestamps
+      <% end -%>
+      - -loggerMaxArgLen=<%= p('vlinsert.logger_max_arg_len') %>
+      <% if p('vlinsert.logger_errors_per_second_limit') > 0 -%>
+      - -loggerErrorsPerSecondLimit=<%= p('vlinsert.logger_errors_per_second_limit') %>
+      <% end -%>
+      <% if p('vlinsert.logger_warns_per_second_limit') > 0 -%>
+      - -loggerWarnsPerSecondLimit=<%= p('vlinsert.logger_warns_per_second_limit') %>
+      <% end -%>
+
+      # Metrics exposure
+      <% if p('vlinsert.metrics_expose_metadata') -%>
+      - -metrics.exposeMetadata
+      <% end -%>
+
+      # Push metrics
+      <% p('vlinsert.pushmetrics_url').each do |url| -%>
+      - -pushmetrics.url=<%= url %>
+      <% end -%>
+      <% if p('vlinsert.pushmetrics_url').length > 0 -%>
+      - -pushmetrics.interval=<%= p('vlinsert.pushmetrics_interval') %>
+      <% end -%>
+      <% p('vlinsert.pushmetrics_extra_label').each do |label| -%>
+      - -pushmetrics.extraLabel=<%= label %>
+      <% end -%>
+      <% p('vlinsert.pushmetrics_header').each do |header| -%>
+      - -pushmetrics.header=<%= header %>
+      <% end -%>
+      <% if p('vlinsert.pushmetrics_disable_compression') -%>
+      - -pushmetrics.disableCompression
+      <% end -%>
+
+      # TLS settings
+      <% if p('vlinsert.tls') -%>
+      - -tls
+      <% end -%>
+      <% if p('vlinsert.tls_cert_file') != "" -%>
+      - -tlsCertFile=<%= p('vlinsert.tls_cert_file') %>
+      <% end -%>
+      <% if p('vlinsert.tls_key_file') != "" -%>
+      - -tlsKeyFile=<%= p('vlinsert.tls_key_file') %>
+      <% end -%>
+      <% p('vlinsert.tls_cipher_suites').each do |cipher| -%>
+      - -tlsCipherSuites=<%= cipher %>
+      <% end -%>
+      <% if p('vlinsert.tls_min_version') != "" -%>
+      - -tlsMinVersion=<%= p('vlinsert.tls_min_version') %>
+      <% end -%>
+      <% if p('vlinsert.mtls') -%>
+      - -mtls
+      <% end -%>
+      <% if p('vlinsert.mtls_ca_file') != "" -%>
+      - -mtlsCAFile=<%= p('vlinsert.mtls_ca_file') %>
+      <% end -%>
+
+      # TLS autocert (enterprise)
+      <% p('vlinsert.tls_autocert_hosts').each do |host| -%>
+      - -tlsAutocertHosts=<%= host %>
+      <% end -%>
+      <% if p('vlinsert.tls_autocert_email') != "" -%>
+      - -tlsAutocertEmail=<%= p('vlinsert.tls_autocert_email') %>
+      <% end -%>
+      <% if p('vlinsert.tls_autocert_cache_dir') != "" -%>
+      - -tlsAutocertCacheDir=<%= p('vlinsert.tls_autocert_cache_dir') %>
+      <% end -%>
+
+      # License (enterprise)
+      <% if p('vlinsert.license') != "" -%>
+      - -license=<%= p('vlinsert.license') %>
+      <% end -%>
+      <% if p('vlinsert.license_file') != "" -%>
+      - -licenseFile=<%= p('vlinsert.license_file') %>
+      <% end -%>
+      <% if p('vlinsert.license_file_reload_interval') != "1h0m0s" -%>
+      - -licenseFile.reloadInterval=<%= p('vlinsert.license_file_reload_interval') %>
+      <% end -%>
+      <% if p('vlinsert.license_force_offline') -%>
+      - -license.forceOffline
+      <% end -%>
+
+      # Query tracing
+      <% if p('vlinsert.deny_query_tracing') -%>
+      - -denyQueryTracing
+      <% end -%>
+
+      # Environment flags
+      <% if p('vlinsert.envflag_enable') -%>
+      - -envflag.enable
+      <% end -%>
+      <% if p('vlinsert.envflag_prefix') != "" -%>
+      - -envflag.prefix=<%= p('vlinsert.envflag_prefix') %>
+      <% end -%>
+
+      # IPv6
+      <% if p('vlinsert.enable_tcp6') -%>
+      - -enableTCP6
+      <% end -%>
+
+      # File system settings
+      <% if p('vlinsert.fs_disable_mmap') -%>
+      - -fs.disableMmap
+      <% end -%>
+      <% if p('vlinsert.filestream_disable_fadvise') -%>
+      - -filestream.disableFadvise
+      <% end -%>
+
+      # Storage nodes from BOSH link
+      <% link("vlstorage").instances.each do |instance| -%>
+      - -storageNode=<%= instance.address %>:<%= link("vlstorage").p("vlstorage.vminsert_port") %>
+      <% end -%>
+
     persistent_disk: false
     ephemeral_disk: false
 
@@ -9,15 +358,5 @@ processes:
       open_files: 65536
 
     env:
-      DOCKER_HOST: unix:///var/vcap/sys/run/docker/docker.sock
-      VLINSERT_PORT: <%= p('vlinsert.port') %>
-      VLINSERT_LOG_LEVEL: <%= p('vlinsert.log_level') %>
-
-    unsafe:
-      privileged: true
-
-    additional_volumes:
-      - path: /var/vcap/sys/run/docker/docker.sock
-        writable: true
-      - path: /var/vcap/sys/run/ready
-        writable: true
+      GOGC: "100"
+      GOMAXPROCS: "4"

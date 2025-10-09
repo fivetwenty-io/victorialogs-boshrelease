@@ -1,0 +1,45 @@
+#!/bin/bash
+set -e
+
+# Extract VictoriaMetrics cluster binaries
+tar -xzf victoria-metrics/victoria-metrics-linux-amd64-v1.127.0-cluster.tar.gz
+
+# Create bin directory
+mkdir -p ${BOSH_INSTALL_TARGET}/bin
+
+# Check what binaries are actually in the archive
+echo "Contents of the archive:"
+ls -la
+
+# Install the cluster binaries - these are the actual binaries in VictoriaMetrics cluster release
+# The archive should contain vminsert, vmselect, vmstorage binaries
+if [ -f "vminsert-prod" ]; then
+  cp vminsert-prod ${BOSH_INSTALL_TARGET}/bin/vminsert
+elif [ -f "vminsert" ]; then
+  cp vminsert ${BOSH_INSTALL_TARGET}/bin/vminsert
+else
+  echo "WARNING: vminsert binary not found"
+fi
+
+if [ -f "vmselect-prod" ]; then
+  cp vmselect-prod ${BOSH_INSTALL_TARGET}/bin/vmselect
+elif [ -f "vmselect" ]; then
+  cp vmselect ${BOSH_INSTALL_TARGET}/bin/vmselect
+else
+  echo "WARNING: vmselect binary not found"
+fi
+
+if [ -f "vmstorage-prod" ]; then
+  cp vmstorage-prod ${BOSH_INSTALL_TARGET}/bin/vmstorage
+elif [ -f "vmstorage" ]; then
+  cp vmstorage ${BOSH_INSTALL_TARGET}/bin/vmstorage
+else
+  echo "WARNING: vmstorage binary not found"
+fi
+
+# Make binaries executable
+chmod +x ${BOSH_INSTALL_TARGET}/bin/*
+
+# List installed binaries
+echo "Installed binaries:"
+ls -la ${BOSH_INSTALL_TARGET}/bin/

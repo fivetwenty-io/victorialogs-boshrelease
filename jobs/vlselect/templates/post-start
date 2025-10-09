@@ -1,9 +1,14 @@
 #!/bin/bash
 set -e
 
-PORT=<%= p('vlselect.port') %>
+# Extract port from http_listen_addr (format is [addr]:port or :port)
+LISTEN_ADDR="<%= p('vlselect.http_listen_addr') %>"
+PORT=$(echo "$LISTEN_ADDR" | sed 's/.*://')
 READY_DIR=/var/vcap/sys/run/ready
 READY_FILE=$READY_DIR/vlselect
+
+# Create ready directory if it doesn't exist
+mkdir -p $READY_DIR
 
 set_ready() {
     local service=$1

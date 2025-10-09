@@ -1,7 +1,9 @@
 #!/bin/bash
 set -e
 
-PORT=<%= p('vlselect.port') %>
+# Extract port from http_listen_addr (format is [addr]:port or :port)
+LISTEN_ADDR="<%= p('vlselect.http_listen_addr') %>"
+PORT=$(echo "$LISTEN_ADDR" | sed 's/.*://')
 
 # Check if VLSelect is responding to health checks
 if curl -sf "http://localhost:${PORT}/health" >/dev/null 2>&1; then

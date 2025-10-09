@@ -1,7 +1,423 @@
 ---
 processes:
   - name: vlselect
-    executable: /var/vcap/jobs/vlselect/bin/vlselect
+    executable: /var/vcap/packages/victoria-logs/bin/vmselect
+    args:
+      # Core HTTP settings
+      - -httpListenAddr=<%= p('vlselect.http_listen_addr') %>
+      <% if p('vlselect.http_listen_addr_use_proxy_protocol') -%>
+      - -httpListenAddr.useProxyProtocol
+      <% end -%>
+      <% if p('vlselect.http_path_prefix') != "" -%>
+      - -http.pathPrefix=<%= p('vlselect.http_path_prefix') %>
+      <% end -%>
+      - -http.connTimeout=<%= p('vlselect.http_conn_timeout') %>
+      - -http.idleConnTimeout=<%= p('vlselect.http_idle_conn_timeout') %>
+      - -http.maxGracefulShutdownDuration=<%= p('vlselect.http_max_graceful_shutdown_duration') %>
+      <% if p('vlselect.http_shutdown_delay') != "" -%>
+      - -http.shutdownDelay=<%= p('vlselect.http_shutdown_delay') %>
+      <% end -%>
+      <% if p('vlselect.http_disable_response_compression') -%>
+      - -http.disableResponseCompression
+      <% end -%>
+      <% if p('vlselect.http_disable_keepalive') -%>
+      - -http.disableKeepAlive
+      <% end -%>
+      <% if p('vlselect.http_disable_cors') -%>
+      - -http.disableCORS
+      <% end -%>
+
+      # HTTP Security headers
+      <% if p('vlselect.http_header_csp') != "" -%>
+      - -http.header.csp=<%= p('vlselect.http_header_csp') %>
+      <% end -%>
+      <% if p('vlselect.http_header_frame_options') != "" -%>
+      - -http.header.frameOptions=<%= p('vlselect.http_header_frame_options') %>
+      <% end -%>
+      <% if p('vlselect.http_header_hsts') != "" -%>
+      - -http.header.hsts=<%= p('vlselect.http_header_hsts') %>
+      <% end -%>
+
+      # Authentication
+      <% if p('vlselect.http_auth_username') != "" && p('vlselect.http_auth_password') != "" -%>
+      - -httpAuth.username=<%= p('vlselect.http_auth_username') %>
+      - -httpAuth.password=<%= p('vlselect.http_auth_password') %>
+      <% end -%>
+      <% if p('vlselect.metrics_auth_key') != "" -%>
+      - -metricsAuthKey=<%= p('vlselect.metrics_auth_key') %>
+      <% end -%>
+      <% if p('vlselect.flags_auth_key') != "" -%>
+      - -flagsAuthKey=<%= p('vlselect.flags_auth_key') %>
+      <% end -%>
+      <% if p('vlselect.pprof_auth_key') != "" -%>
+      - -pprofAuthKey=<%= p('vlselect.pprof_auth_key') %>
+      <% end -%>
+      <% if p('vlselect.delete_auth_key') != "" -%>
+      - -deleteAuthKey=<%= p('vlselect.delete_auth_key') %>
+      <% end -%>
+      <% if p('vlselect.reset_cache_auth_key') != "" -%>
+      - -search.resetCacheAuthKey=<%= p('vlselect.reset_cache_auth_key') %>
+      <% end -%>
+      <% if p('vlselect.metric_names_stats_reset_auth_key') != "" -%>
+      - -metricNamesStatsResetAuthKey=<%= p('vlselect.metric_names_stats_reset_auth_key') %>
+      <% end -%>
+
+      # Cluster native settings
+      <% if p('vlselect.cluster_native_listen_addr') != "" -%>
+      - -clusternativeListenAddr=<%= p('vlselect.cluster_native_listen_addr') %>
+      <% end -%>
+      <% if p('vlselect.cluster_native_disable_compression') -%>
+      - -clusternative.disableCompression
+      <% end -%>
+      <% if p('vlselect.cluster_native_max_concurrent_requests') > 0 -%>
+      - -clusternative.maxConcurrentRequests=<%= p('vlselect.cluster_native_max_concurrent_requests') %>
+      <% end -%>
+      - -clusternative.maxQueueDuration=<%= p('vlselect.cluster_native_max_queue_duration') %>
+      - -clusternative.maxTagKeys=<%= p('vlselect.cluster_native_max_tag_keys') %>
+      - -clusternative.maxTagValues=<%= p('vlselect.cluster_native_max_tag_values') %>
+      - -clusternative.maxTagValueSuffixesPerSearch=<%= p('vlselect.cluster_native_max_tag_value_suffixes') %>
+
+      # Cluster native TLS (enterprise)
+      <% if p('vlselect.cluster_native_tls') -%>
+      - -clusternative.tls
+      <% end -%>
+      <% if p('vlselect.cluster_native_tls_ca_file') != "" -%>
+      - -clusternative.tlsCAFile=<%= p('vlselect.cluster_native_tls_ca_file') %>
+      <% end -%>
+      <% if p('vlselect.cluster_native_tls_cert_file') != "" -%>
+      - -clusternative.tlsCertFile=<%= p('vlselect.cluster_native_tls_cert_file') %>
+      <% end -%>
+      <% if p('vlselect.cluster_native_tls_key_file') != "" -%>
+      - -clusternative.tlsKeyFile=<%= p('vlselect.cluster_native_tls_key_file') %>
+      <% end -%>
+      <% p('vlselect.cluster_native_tls_cipher_suites').each do |cipher| -%>
+      - -clusternative.tlsCipherSuites=<%= cipher %>
+      <% end -%>
+      <% if p('vlselect.cluster_native_tls_insecure_skip_verify') -%>
+      - -clusternative.tlsInsecureSkipVerify
+      <% end -%>
+
+      # Storage node settings
+      <% if p('vlselect.storage_node_discovery_interval') != "2s" -%>
+      - -storageNode.discoveryInterval=<%= p('vlselect.storage_node_discovery_interval') %>
+      <% end -%>
+      <% if p('vlselect.storage_node_filter') != "" -%>
+      - -storageNode.filter=<%= p('vlselect.storage_node_filter') %>
+      <% end -%>
+      - -vmstorageDialTimeout=<%= p('vlselect.vmstorage_dial_timeout') %>
+      - -vmstorageUserTimeout=<%= p('vlselect.vmstorage_user_timeout') %>
+
+      # Other vmselect nodes
+      <% p('vlselect.select_node').each do |node| -%>
+      - -selectNode=<%= node %>
+      <% end -%>
+
+      # RPC settings
+      - -rpc.handshakeTimeout=<%= p('vlselect.rpc_handshake_timeout') %>
+
+      # Cluster TLS settings (enterprise)
+      <% if p('vlselect.cluster_tls') -%>
+      - -cluster.tls
+      <% end -%>
+      <% if p('vlselect.cluster_tls_ca_file') != "" -%>
+      - -cluster.tlsCAFile=<%= p('vlselect.cluster_tls_ca_file') %>
+      <% end -%>
+      <% if p('vlselect.cluster_tls_cert_file') != "" -%>
+      - -cluster.tlsCertFile=<%= p('vlselect.cluster_tls_cert_file') %>
+      <% end -%>
+      <% if p('vlselect.cluster_tls_key_file') != "" -%>
+      - -cluster.tlsKeyFile=<%= p('vlselect.cluster_tls_key_file') %>
+      <% end -%>
+      <% if p('vlselect.cluster_tls_insecure_skip_verify') -%>
+      - -cluster.tlsInsecureSkipVerify
+      <% end -%>
+
+      # Replication settings
+      <% p('vlselect.replication_factor').each do |group, factor| -%>
+      - -replicationFactor=<%= group %>:<%= factor %>
+      <% end -%>
+      - -globalReplicationFactor=<%= p('vlselect.global_replication_factor') %>
+      <% if p('vlselect.search_skip_slow_replicas') -%>
+      - -search.skipSlowReplicas
+      <% end -%>
+
+      # Memory and cache settings
+      - -memory.allowedPercent=<%= p('vlselect.memory_allowed_percent') %>
+      <% if p('vlselect.memory_allowed_bytes') > 0 -%>
+      - -memory.allowedBytes=<%= p('vlselect.memory_allowed_bytes') %>
+      <% end -%>
+      - -cacheExpireDuration=<%= p('vlselect.cache_expire_duration') %>
+      - -prevCacheRemovalPercent=<%= p('vlselect.prev_cache_removal_percent') %>
+      - -blockcache.missesBeforeCaching=<%= p('vlselect.blockcache_misses_before_caching') %>
+      <% if p('vlselect.cache_data_path') != "" -%>
+      - -cacheDataPath=<%= p('vlselect.cache_data_path') %>
+      <% end -%>
+
+      # String interning settings
+      - -internStringMaxLen=<%= p('vlselect.intern_string_max_len') %>
+      - -internStringCacheExpireDuration=<%= p('vlselect.intern_string_cache_expire_duration') %>
+      <% if p('vlselect.intern_string_disable_cache') -%>
+      - -internStringDisableCache
+      <% end -%>
+
+      # Deduplication
+      <% if p('vlselect.dedup_min_scrape_interval') != "" -%>
+      - -dedup.minScrapeInterval=<%= p('vlselect.dedup_min_scrape_interval') %>
+      <% end -%>
+
+      # Downsampling (enterprise)
+      <% p('vlselect.downsampling_period').each do |period| -%>
+      - -downsampling.period=<%= period %>
+      <% end -%>
+
+      # Search/query settings
+      - -search.cacheTimestampOffset=<%= p('vlselect.search_cache_timestamp_offset') %>
+      <% if p('vlselect.search_deny_partial_response') -%>
+      - -search.denyPartialResponse
+      <% end -%>
+      <% if p('vlselect.search_disable_cache') -%>
+      - -search.disableCache
+      <% end -%>
+      <% if p('vlselect.search_disable_implicit_conversion') -%>
+      - -search.disableImplicitConversion
+      <% end -%>
+      <% if p('vlselect.search_reset_rollup_result_cache_on_startup') -%>
+      - -search.resetRollupResultCacheOnStartup
+      <% end -%>
+      <% if p('vlselect.search_treat_dots_as_is_in_regexps') -%>
+      - -search.treatDotsAsIsInRegexps
+      <% end -%>
+      <% if p('vlselect.search_no_stale_markers') -%>
+      - -search.noStaleMarkers
+      <% end -%>
+      <% if p('vlselect.search_set_lookback_to_step') -%>
+      - -search.setLookbackToStep
+      <% end -%>
+      <% if p('vlselect.search_log_implicit_conversion') -%>
+      - -search.logImplicitConversion
+      <% end -%>
+      - -search.logSlowQueryDuration=<%= p('vlselect.search_log_slow_query_duration') %>
+      <% if p('vlselect.search_log_query_memory_usage') > 0 -%>
+      - -search.logQueryMemoryUsage=<%= p('vlselect.search_log_query_memory_usage') %>
+      <% end -%>
+      <% if p('vlselect.search_log_slow_query_stats') != "" -%>
+      - -search.logSlowQueryStats=<%= p('vlselect.search_log_slow_query_stats') %>
+      <% end -%>
+      <% p('vlselect.search_log_slow_query_stats_headers').each do |header| -%>
+      - -search.logSlowQueryStatsHeaders=<%= header %>
+      <% end -%>
+
+      # Query limits
+      <% if p('vlselect.search_max_concurrent_requests') > 0 -%>
+      - -search.maxConcurrentRequests=<%= p('vlselect.search_max_concurrent_requests') %>
+      <% end -%>
+      - -search.maxQueueDuration=<%= p('vlselect.search_max_queue_duration') %>
+      - -search.maxQueryDuration=<%= p('vlselect.search_max_query_duration') %>
+      - -search.maxQueryLen=<%= p('vlselect.search_max_query_len') %>
+      <% if p('vlselect.search_max_memory_per_query') > 0 -%>
+      - -search.maxMemoryPerQuery=<%= p('vlselect.search_max_memory_per_query') %>
+      <% end -%>
+      <% if p('vlselect.search_max_workers_per_query') > 0 -%>
+      - -search.maxWorkersPerQuery=<%= p('vlselect.search_max_workers_per_query') %>
+      <% end -%>
+      - -search.maxSamplesPerQuery=<%= p('vlselect.search_max_samples_per_query') %>
+      - -search.maxSamplesPerSeries=<%= p('vlselect.search_max_samples_per_series') %>
+      - -search.maxPointsPerTimeseries=<%= p('vlselect.search_max_points_per_timeseries') %>
+      - -search.maxPointsSubqueryPerTimeseries=<%= p('vlselect.search_max_points_subquery_per_timeseries') %>
+      - -search.maxSeriesPerAggrFunc=<%= p('vlselect.search_max_series_per_aggr_func') %>
+      <% if p('vlselect.search_max_unique_timeseries') > 0 -%>
+      - -search.maxUniqueTimeseries=<%= p('vlselect.search_max_unique_timeseries') %>
+      <% end -%>
+      <% if p('vlselect.search_max_response_series') > 0 -%>
+      - -search.maxResponseSeries=<%= p('vlselect.search_max_response_series') %>
+      <% end -%>
+      <% if p('vlselect.search_inmemory_buf_size_bytes') > 0 -%>
+      - -search.inmemoryBufSizeBytes=<%= p('vlselect.search_inmemory_buf_size_bytes') %>
+      <% end -%>
+
+      # API limits
+      - -search.maxExportDuration=<%= p('vlselect.search_max_export_duration') %>
+      - -search.maxExportSeries=<%= p('vlselect.search_max_export_series') %>
+      - -search.maxFederateSeries=<%= p('vlselect.search_max_federate_series') %>
+      - -search.maxSeries=<%= p('vlselect.search_max_series') %>
+      - -search.maxTSDBStatusSeries=<%= p('vlselect.search_max_tsdb_status_series') %>
+      - -search.maxTSDBStatusTopNSeries=<%= p('vlselect.search_max_tsdb_status_top_n') %>
+      - -search.maxLabelsAPISeries=<%= p('vlselect.search_max_labels_api_series') %>
+      - -search.maxLabelsAPIDuration=<%= p('vlselect.search_max_labels_api_duration') %>
+      <% if p('vlselect.search_ignore_extra_filters_at_labels_api') -%>
+      - -search.ignoreExtraFiltersAtLabelsAPI
+      <% end -%>
+      - -search.maxStatusRequestDuration=<%= p('vlselect.search_max_status_request_duration') %>
+      - -search.maxDeleteDuration=<%= p('vlselect.search_max_delete_duration') %>
+      - -search.maxDeleteSeries=<%= p('vlselect.search_max_delete_series') %>
+      - -search.maxBinaryOpPushdownLabelValues=<%= p('vlselect.search_max_binary_op_pushdown_label_values') %>
+      - -search.maxTagValueSuffixesPerSearch=<%= p('vlselect.search_max_tag_value_suffixes_per_search') %>
+
+      # Graphite API settings
+      - -search.graphiteMaxPointsPerSeries=<%= p('vlselect.search_graphite_max_points_per_series') %>
+      - -search.graphiteMaxSeries=<%= p('vlselect.search_graphite_max_series') %>
+      - -search.graphiteStorageStep=<%= p('vlselect.search_graphite_storage_step') %>
+      - -search.graphiteMaxTagKeys=<%= p('vlselect.search_graphite_max_tag_keys') %>
+      - -search.graphiteMaxTagValues=<%= p('vlselect.search_graphite_max_tag_values') %>
+      - -search.graphiteMaxPathExpressionLen=<%= p('vlselect.search_graphite_max_path_expression_len') %>
+      <% if p('vlselect.graphite_sanitize_metric_name') -%>
+      - -graphite.sanitizeMetricName
+      <% end -%>
+
+      # Lookback and staleness
+      <% if p('vlselect.search_max_lookback') != "" -%>
+      - -search.maxLookback=<%= p('vlselect.search_max_lookback') %>
+      <% end -%>
+      <% if p('vlselect.search_max_staleness_interval') != "" -%>
+      - -search.maxStalenessInterval=<%= p('vlselect.search_max_staleness_interval') %>
+      <% end -%>
+      <% if p('vlselect.search_min_staleness_interval') != "" -%>
+      - -search.minStalenessInterval=<%= p('vlselect.search_min_staleness_interval') %>
+      <% end -%>
+      - -search.latencyOffset=<%= p('vlselect.search_latency_offset') %>
+      - -search.maxStepForPointsAdjustment=<%= p('vlselect.search_max_step_for_points_adjustment') %>
+      - -search.minWindowForInstantRollupOptimization=<%= p('vlselect.search_min_window_for_instant_rollup_optimization') %>
+
+      # Query stats
+      - -search.queryStats.lastQueriesCount=<%= p('vlselect.search_query_stats_last_queries_count') %>
+      - -search.queryStats.minQueryDuration=<%= p('vlselect.search_query_stats_min_query_duration') %>
+
+      # Tenant cache
+      - -search.tenantCacheExpireDuration=<%= p('vlselect.search_tenant_cache_expire_duration') %>
+
+      # vmalert proxy
+      <% if p('vlselect.vmalert_proxy_url') != "" -%>
+      - -vmalert.proxyURL=<%= p('vlselect.vmalert_proxy_url') %>
+      <% end -%>
+
+      # vmui settings
+      <% if p('vlselect.vmui_custom_dashboards_path') != "" -%>
+      - -vmui.customDashboardsPath=<%= p('vlselect.vmui_custom_dashboards_path') %>
+      <% end -%>
+      <% if p('vlselect.vmui_default_timezone') != "" -%>
+      - -vmui.defaultTimezone=<%= p('vlselect.vmui_default_timezone') %>
+      <% end -%>
+
+      # Query tracing
+      <% if p('vlselect.deny_query_tracing') %>
+      - -denyQueryTracing
+      <% end %>
+
+      # Logging settings
+      - -loggerLevel=<%= p('vlselect.logger_level') %>
+      - -loggerFormat=<%= p('vlselect.logger_format') %>
+      - -loggerOutput=<%= p('vlselect.logger_output') %>
+      - -loggerTimezone=<%= p('vlselect.logger_timezone') %>
+      <% if p('vlselect.logger_json_fields') != "" %>
+      - -loggerJSONFields=<%= p('vlselect.logger_json_fields') %>
+      <% end %>
+      <% if p('vlselect.logger_disable_timestamps') %>
+      - -loggerDisableTimestamps
+      <% end %>
+      - -loggerMaxArgLen=<%= p('vlselect.logger_max_arg_len') %>
+      <% if p('vlselect.logger_errors_per_second_limit') > 0 %>
+      - -loggerErrorsPerSecondLimit=<%= p('vlselect.logger_errors_per_second_limit') %>
+      <% end %>
+      <% if p('vlselect.logger_warns_per_second_limit') > 0 %>
+      - -loggerWarnsPerSecondLimit=<%= p('vlselect.logger_warns_per_second_limit') %>
+      <% end %>
+
+      # Metrics exposure
+      <% if p('vlselect.metrics_expose_metadata') %>
+      - -metrics.exposeMetadata
+      <% end %>
+
+      # Push metrics
+      <% p('vlselect.pushmetrics_url').each do |url| %>
+      - -pushmetrics.url=<%= url %>
+      <% end %>
+      <% if p('vlselect.pushmetrics_url').length > 0 %>
+      - -pushmetrics.interval=<%= p('vlselect.pushmetrics_interval') %>
+      <% end %>
+      <% p('vlselect.pushmetrics_extra_label').each do |label| %>
+      - -pushmetrics.extraLabel=<%= label %>
+      <% end %>
+      <% p('vlselect.pushmetrics_header').each do |header| %>
+      - -pushmetrics.header=<%= header %>
+      <% end %>
+      <% if p('vlselect.pushmetrics_disable_compression') %>
+      - -pushmetrics.disableCompression
+      <% end %>
+
+      # TLS settings
+      <% if p('vlselect.tls') %>
+      - -tls
+      <% end %>
+      <% if p('vlselect.tls_cert_file') != "" %>
+      - -tlsCertFile=<%= p('vlselect.tls_cert_file') %>
+      <% end %>
+      <% if p('vlselect.tls_key_file') != "" %>
+      - -tlsKeyFile=<%= p('vlselect.tls_key_file') %>
+      <% end %>
+      <% p('vlselect.tls_cipher_suites').each do |cipher| %>
+      - -tlsCipherSuites=<%= cipher %>
+      <% end %>
+      <% if p('vlselect.tls_min_version') != "" %>
+      - -tlsMinVersion=<%= p('vlselect.tls_min_version') %>
+      <% end %>
+      <% if p('vlselect.mtls') %>
+      - -mtls
+      <% end %>
+      <% if p('vlselect.mtls_ca_file') != "" %>
+      - -mtlsCAFile=<%= p('vlselect.mtls_ca_file') %>
+      <% end %>
+
+      # TLS autocert (enterprise)
+      <% p('vlselect.tls_autocert_hosts').each do |host| %>
+      - -tlsAutocertHosts=<%= host %>
+      <% end %>
+      <% if p('vlselect.tls_autocert_email') != "" %>
+      - -tlsAutocertEmail=<%= p('vlselect.tls_autocert_email') %>
+      <% end %>
+      <% if p('vlselect.tls_autocert_cache_dir') != "" %>
+      - -tlsAutocertCacheDir=<%= p('vlselect.tls_autocert_cache_dir') %>
+      <% end %>
+
+      # License (enterprise)
+      <% if p('vlselect.license') != "" %>
+      - -license=<%= p('vlselect.license') %>
+      <% end %>
+      <% if p('vlselect.license_file') != "" %>
+      - -licenseFile=<%= p('vlselect.license_file') %>
+      <% end %>
+      <% if p('vlselect.license_file_reload_interval') != "1h0m0s" %>
+      - -licenseFile.reloadInterval=<%= p('vlselect.license_file_reload_interval') %>
+      <% end %>
+      <% if p('vlselect.license_force_offline') %>
+      - -license.forceOffline
+      <% end %>
+
+      # Environment flags
+      <% if p('vlselect.envflag_enable') %>
+      - -envflag.enable
+      <% end %>
+      <% if p('vlselect.envflag_prefix') != "" %>
+      - -envflag.prefix=<%= p('vlselect.envflag_prefix') %>
+      <% end %>
+
+      # IPv6
+      <% if p('vlselect.enable_tcp6') %>
+      - -enableTCP6
+      <% end %>
+
+      # File system settings
+      <% if p('vlselect.fs_disable_mmap') %>
+      - -fs.disableMmap
+      <% end %>
+      <% if p('vlselect.filestream_disable_fadvise') %>
+      - -filestream.disableFadvise
+      <% end %>
+
+      # Storage nodes from BOSH link
+      <% link("vlstorage").instances.each do |instance| %>
+      - -storageNode=<%= instance.address %>:<%= link("vlstorage").p("vlstorage.vmselect_port") %>
+      <% end %>
+
     persistent_disk: false
     ephemeral_disk: false
 
@@ -9,15 +425,5 @@ processes:
       open_files: 65536
 
     env:
-      DOCKER_HOST: unix:///var/vcap/sys/run/docker/docker.sock
-      VLSELECT_PORT: <%= p('vlselect.port') %>
-      VLSELECT_LOG_LEVEL: <%= p('vlselect.log_level') %>
-
-    unsafe:
-      privileged: true
-
-    additional_volumes:
-      - path: /var/vcap/sys/run/docker/docker.sock
-        writable: true
-      - path: /var/vcap/sys/run/ready
-        writable: true
+      GOGC: "100"
+      GOMAXPROCS: "4"

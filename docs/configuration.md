@@ -2,7 +2,72 @@
 
 This guide details all configuration options available in the VictoriaLogs BOSH release.
 
-## VictoriaLogs Configuration
+## VictoriaLogs Single-Node Configuration
+
+The single-node `victorialogs` job runs as a Docker container and provides a simple deployment option for smaller environments.
+
+### Forwarding Cloud Foundry Logs
+Add the following ops file to `cf-deployment` to ship Cloud Foundry component logs into
+VictoriaLogs. Supply the referenced variables via `-v` flags or a vars store.
+
+```yaml
+# operations/victorialogs-syslog-forwarder.yml
+---
+- type: replace
+  path: /releases?/name=syslog
+  value:
+    name: syslog
+    version: 11.13.0
+
+- type: replace
+  path: /addons?/-
+  value:
+    name: victorialogs-syslog-forwarder
+    include:
+      jobs:
+      - name: /.+/
+    jobs:
+    - name: syslog_agent
+      release: syslog
+      properties:
+        syslog:
+          address: ((victorialogs_syslog_host))
+          port: ((victorialogs_syslog_port))
+          transport: tcp
+          tls:
+            enabled: ((victorialogs_syslog_tls_enabled))
+            skip_cert_verify: false
+            ca_cert: ((victorialogs_syslog_ca.certificate))
+            cert: ((victorialogs_syslog_client.certificate))
+            key: ((victorialogs_syslog_client.private_key))
+            server_name: ((victorialogs_syslog_tls_cn))
+          queue_size: 65536
+          fallback_servers: []
+        syslog_agent:
+          disable: false
+
+- type: replace
+  path: /variables?/-
+  value:
+    name: victorialogs_syslog_client
+    type: certificate
+    options:
+      ca: victorialogs_syslog_ca
+      common_name: victorialogs-syslog-client
+      extended_key_usage: [client_auth]
+```
+
+```bash
+bosh deploy cf-deployment.yml \
+  -o operations/victorialogs-syslog-forwarder.yml \
+  -v victorialogs_syslog_host=<vlinsert-ip> \
+  -v victorialogs_syslog_port=514 \
+  -v victorialogs_syslog_tls_enabled=true
+```
+
+For cluster deployments, ensure the vlinsert job has syslog listening enabled
+(`vlinsert.syslog_listen_addr: ":514"`). Application logs still require app-level syslog drains, and
+you should verify delivery post-deploy by tailing the `syslog_agent` logs via `bosh ssh`.
 
 ### victorialogs.port
 - **Description**: Port for VictoriaLogs HTTP API
@@ -95,22 +160,27 @@ This guide details all configuration options available in the VictoriaLogs BOSH 
 
 ## VictoriaLogs Cluster Configuration
 
+The cluster deployment uses native VictoriaMetrics binaries (version v1.36.1) to provide horizontal scalability and high availability. The cluster consists of three components:
+- **vlstorage**: Stores and manages data
+- **vlinsert**: Handles data ingestion
+- **vlselect**: Processes queries
+
 ### VLStorage Configuration
 
-#### vlstorage.port
-- **Description**: Port for VLStorage HTTP API
-- **Default**: 9491
+#### vlstorage.http_port
+- **Description**: Port for vmstorage HTTP API
+- **Default**: 8482
 - **Type**: Integer
 
-#### vlstorage.internal_port
-- **Description**: Internal port for vlinsert/vlselect communication
-- **Default**: 9491
+#### vlstorage.vminsert_port
+- **Description**: Port for vminsert connections
+- **Default**: 8400
 - **Type**: Integer
 
-#### vlstorage.container_image
-- **Description**: Docker image for VLStorage component
-- **Default**: docker.io/victoriametrics/victoria-logs:v1.35.0
-- **Type**: String
+#### vlstorage.vmselect_port
+- **Description**: Port for vmselect connections
+- **Default**: 8401
+- **Type**: Integer
 
 #### vlstorage.storage_path
 - **Description**: Path for persistent storage of logs
@@ -120,11 +190,6 @@ This guide details all configuration options available in the VictoriaLogs BOSH 
 #### vlstorage.retention_period
 - **Description**: Log retention period (e.g., 7d, 30d, 1y)
 - **Default**: 7d
-- **Type**: String
-
-#### vlstorage.memory_limit
-- **Description**: Memory limit for VLStorage container
-- **Default**: 4G
 - **Type**: String
 
 #### vlstorage.log_level
@@ -142,26 +207,26 @@ This guide details all configuration options available in the VictoriaLogs BOSH 
 - **Default**: ""
 - **Type**: String
 
+#### vlstorage.memory_allowed_percent
+- **Description**: Allowed percent of system memory VictoriaMetrics caches may occupy
+- **Default**: 60
+- **Type**: Integer
+
+#### vlstorage.dedup_min_scrape_interval
+- **Description**: Leave only the first sample in every interval for deduplication
+- **Default**: ""
+- **Type**: String
+
 ### VLInsert Configuration
 
-#### vlinsert.port
-- **Description**: Port for VLInsert HTTP API
-- **Default**: 9481
+#### vlinsert.http_port
+- **Description**: Port for vminsert HTTP API
+- **Default**: 8480
 - **Type**: Integer
 
 #### vlinsert.api_endpoint
-- **Description**: VLInsert API endpoint
+- **Description**: VictoriaMetrics insert API endpoint
 - **Default**: /insert
-- **Type**: String
-
-#### vlinsert.container_image
-- **Description**: Docker image for VLInsert component
-- **Default**: docker.io/victoriametrics/victoria-logs:v1.35.0
-- **Type**: String
-
-#### vlinsert.memory_limit
-- **Description**: Memory limit for VLInsert container
-- **Default**: 2G
 - **Type**: String
 
 #### vlinsert.log_level
@@ -184,31 +249,41 @@ This guide details all configuration options available in the VictoriaLogs BOSH 
 - **Default**: 32
 - **Type**: Integer
 
-#### vlinsert.insert_rate_limit
-- **Description**: Per-second limit on inserted log entries (0 = unlimited)
-- **Default**: 0
+#### vlinsert.max_insert_request_size
+- **Description**: Maximum size in bytes of a single Prometheus remote_write API request
+- **Default**: 33554432
 - **Type**: Integer
+
+#### vlinsert.replication_factor
+- **Description**: Replication factor for the ingested data
+- **Default**: 1
+- **Type**: Integer
+
+#### vlinsert.disable_rerouting
+- **Description**: Whether to disable re-routing when some vmstorage nodes are slow
+- **Default**: false
+- **Type**: Boolean
+
+#### vlinsert.memory_allowed_percent
+- **Description**: Allowed percent of system memory VictoriaMetrics caches may occupy
+- **Default**: 60
+- **Type**: Integer
+
+#### vlinsert.syslog_listen_addr
+- **Description**: TCP address to listen for syslog data (empty to disable)
+- **Default**: ""
+- **Type**: String
 
 ### VLSelect Configuration
 
-#### vlselect.port
-- **Description**: Port for VLSelect HTTP API
-- **Default**: 9471
+#### vlselect.http_port
+- **Description**: Port for vmselect HTTP API
+- **Default**: 8481
 - **Type**: Integer
 
 #### vlselect.api_endpoint
-- **Description**: VLSelect API endpoint
+- **Description**: VictoriaMetrics select API endpoint
 - **Default**: /select
-- **Type**: String
-
-#### vlselect.container_image
-- **Description**: Docker image for VLSelect component
-- **Default**: docker.io/victoriametrics/victoria-logs:v1.35.0
-- **Type**: String
-
-#### vlselect.memory_limit
-- **Description**: Memory limit for VLSelect container
-- **Default**: 2G
 - **Type**: String
 
 #### vlselect.log_level
@@ -230,3 +305,18 @@ This guide details all configuration options available in the VictoriaLogs BOSH 
 - **Description**: Maximum number of concurrent select requests
 - **Default**: 32
 - **Type**: Integer
+
+#### vlselect.memory_allowed_percent
+- **Description**: Allowed percent of system memory VictoriaMetrics caches may occupy
+- **Default**: 60
+- **Type**: Integer
+
+#### vlselect.dedup_min_scrape_interval
+- **Description**: Leave only the first sample in every interval for deduplication
+- **Default**: ""
+- **Type**: String
+
+#### vlselect.search_max_query_duration
+- **Description**: Maximum duration for query execution
+- **Default**: 30s
+- **Type**: String

@@ -28,3 +28,9 @@ docker-ce/docker-compose-plugin_2.39.4-0~ubuntu.24.04~noble_amd64.deb:
 jq/jq-linux64:
   size: 2319424
   sha: sha256:5942c9b0934e510ee61eb3e30273f1b3fe2590df93933a93d7c58b81d19c8ff5
+victoria-metrics/victoria-metrics-linux-amd64-v1.127.0-cluster.tar.gz:
+  size: 26949921
+  sha: sha256:85bbdbb55c650a9ebaa5eb416002360fd9fa95e219f15bc47238642dd38a8cef
+vmutils/vmutils-linux-amd64-v1.127.0.tar.gz:
+  size: 99213220
+  sha: sha256:7590e0f9a4a2a336f5115abba285645d26a6a2ae481c230407b5f17bdeeabbb4

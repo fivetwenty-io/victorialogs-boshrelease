@@ -1,5 +1,5 @@
 #!/bin/bash
 set -e
 
-echo "[$(date '+%H:%M:%S')] VLStorage: Post-deploy tasks complete"
+echo "[$(date '+%H:%M:%S')] vmstorage: Post-deploy tasks complete"
 exit 0

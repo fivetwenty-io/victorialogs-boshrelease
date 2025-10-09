@@ -1,31 +1,27 @@
 #!/bin/bash
 set -e
 
-PORT=<%= p('vlstorage.port') %>
-READY_DIR=/var/vcap/sys/run/ready
-READY_FILE=$READY_DIR/vlstorage
+HTTP_PORT=<%= p('vlstorage.http_port') %>
 
-set_ready() {
-    local service=$1
-    touch $READY_DIR/$service
-    echo "[$(date '+%H:%M:%S')] $service: Ready"
-}
+echo "[$(date '+%H:%M:%S')] vmstorage: Starting post-start health check..."
 
-echo "[$(date '+%H:%M:%S')] VLStorage: Starting post-start health check..."
-
-# Wait for VLStorage to be ready
+# Wait for vmstorage to be ready
 max_wait=60
 elapsed=0
 
 while [ $elapsed -lt $max_wait ]; do
-    if curl -sf "http://localhost:${PORT}/health" >/dev/null 2>&1; then
-        echo "[$(date '+%H:%M:%S')] VLStorage health check passed"
-        set_ready "vlstorage"
-        exit 0
+    if curl -sf "http://localhost:${HTTP_PORT}/health" >/dev/null 2>&1; then
+        echo "[$(date '+%H:%M:%S')] vmstorage health check passed"
+
+        # Also check metrics endpoint
+        if curl -sf "http://localhost:${HTTP_PORT}/metrics" >/dev/null 2>&1; then
+            echo "[$(date '+%H:%M:%S')] vmstorage metrics endpoint ready"
+            exit 0
+        fi
     fi
     sleep 1
     elapsed=$((elapsed + 1))
 done
 
-echo "[$(date '+%H:%M:%S')] ERROR: VLStorage health check failed after ${max_wait}s"
+echo "[$(date '+%H:%M:%S')] ERROR: vmstorage health check failed after ${max_wait}s"
 exit 1

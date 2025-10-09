@@ -1,8 +1,7 @@
 ---
 name: vlstorage
 packages:
-- docker-ce
-- jq
+- victoria-logs
 
 templates:
   bpm.yml: config/bpm.yml
@@ -12,42 +11,388 @@ templates:
   vlstorage: bin/vlstorage
   vlstorage-health-check: bin/vlstorage-health-check
 
-consumes:
-- name: docker
-  type: docker
-
 provides:
 - name: vlstorage
   type: vlstorage
   properties:
-  - vlstorage.port
-  - vlstorage.internal_port
+  - vlstorage.http_port
+  - vlstorage.vminsert_port
+  - vlstorage.vmselect_port
 
 properties:
-  vlstorage.port:
-    description: "Port for VictoriaLogs storage HTTP API"
-    default: 9491
-  vlstorage.internal_port:
-    description: "Internal port for vlinsert/vlselect communication"
-    default: 9491
-  vlstorage.container_image:
-    description: "Docker image for VictoriaLogs storage component"
-    default: "docker.io/victoriametrics/victoria-logs:v1.35.0"
+  # Network Configuration
+  vlstorage.http_port:
+    description: "Port for vmstorage HTTP API"
+    default: 8482
+  vlstorage.vminsert_port:
+    description: "TCP address to accept connections from vminsert services"
+    default: 8400
+  vlstorage.vmselect_port:
+    description: "TCP address to accept connections from vmselect services"
+    default: 8401
+  vlstorage.enable_tcp6:
+    description: "Whether to enable IPv6 for listening and dialing. By default, only IPv4 TCP and UDP are used"
+    default: false
+
+  # Storage Configuration
   vlstorage.storage_path:
-    description: "Path for persistent storage of logs"
+    description: "Path to storage data"
     default: "/var/vcap/store/vlstorage/data"
   vlstorage.retention_period:
-    description: "Log retention period (e.g., 7d, 30d, 1y)"
-    default: "7d"
-  vlstorage.memory_limit:
-    description: "Memory limit for VictoriaLogs storage container"
-    default: "4G"
-  vlstorage.log_level:
-    description: "Log level (INFO, WARN, ERROR, FATAL, PANIC)"
-    default: "INFO"
+    description: "Data with timestamps outside the retentionPeriod is automatically deleted. The minimum retentionPeriod is 24h or 1d"
+    default: "1"
+  vlstorage.retention_timezone_offset:
+    description: "The offset for performing indexdb rotation. If set to 0, then the indexdb rotation is performed at 4am UTC time per each -retentionPeriod. If set to 2h, then the indexdb rotation is performed at 4am EET time"
+    default: ""
+  vlstorage.retention_filter:
+    description: "Retention filter in the format 'filter:retention'. For example, '{env=\"dev\"}:3d' configures the retention for time series with env=\"dev\" label to 3 days. Array of strings"
+    default: []
+  vlstorage.downsampling_period:
+    description: "Comma-separated downsampling periods in the format 'offset:period'. For example, '30d:10m' instructs to leave a single sample per 10 minutes for samples older than 30 days. Array of strings"
+    default: []
+
+  # Deduplication
+  vlstorage.dedup_min_scrape_interval:
+    description: "Leave only the last sample in every time series per each discrete interval equal to -dedup.minScrapeInterval > 0 (duration string, e.g. '30s')"
+    default: ""
+
+  # Cardinality Limiting
+  vlstorage.max_hourly_series:
+    description: "The maximum number of unique series can be added to the storage during the last hour. Excess series are logged and dropped"
+    default: 0
+  vlstorage.max_daily_series:
+    description: "The maximum number of unique series can be added to the storage during the last 24 hours. Excess series are logged and dropped"
+    default: 0
+  vlstorage.search_max_unique_timeseries:
+    description: "The maximum number of unique time series, which can be scanned during every query. 0 = automatically calculated"
+    default: 0
+
+  # Performance Tuning
+  vlstorage.max_concurrent_inserts:
+    description: "The maximum number of concurrent insert requests. Default value depends on the number of available CPU cores"
+    default: 0
+  vlstorage.insert_max_queue_duration:
+    description: "The maximum duration to wait in the queue when -maxConcurrentInserts concurrent insert requests are executed"
+    default: "1m"
+  vlstorage.search_max_concurrent_requests:
+    description: "The maximum number of concurrent vmselect requests the vmstorage can process. Default = 2*cgroup.AvailableCPUs()"
+    default: 0
+  vlstorage.search_max_queue_duration:
+    description: "The maximum time the incoming vmselect request waits for execution when -search.maxConcurrentRequests limit is reached"
+    default: "10s"
+
+  # Memory Configuration
+  vlstorage.memory_allowed_percent:
+    description: "Allowed percent of system memory VictoriaMetrics caches may occupy"
+    default: 60
+  vlstorage.memory_allowed_bytes:
+    description: "Allowed size of system memory VictoriaMetrics caches may occupy. This option overrides -memory.allowedPercent if set to a non-zero value"
+    default: ""
+
+  # Cache Configuration
+  vlstorage.cache_expire_duration:
+    description: "Items are removed from in-memory caches after they aren't accessed for this duration"
+    default: "30m"
+  vlstorage.prev_cache_removal_percent:
+    description: "Items in the previous caches are removed when the percent of requests it serves becomes lower than this value"
+    default: 0.1
+  vlstorage.blockcache_misses_before_caching:
+    description: "The number of cache misses before putting the block into cache"
+    default: 2
+
+  # Storage Cache Sizes
+  vlstorage.storage_cache_size_indexdb_data_blocks:
+    description: "Overrides max size for indexdb/dataBlocks cache"
+    default: ""
+  vlstorage.storage_cache_size_indexdb_data_blocks_sparse:
+    description: "Overrides max size for indexdb/dataBlocksSparse cache"
+    default: ""
+  vlstorage.storage_cache_size_indexdb_index_blocks:
+    description: "Overrides max size for indexdb/indexBlocks cache"
+    default: ""
+  vlstorage.storage_cache_size_indexdb_tag_filters:
+    description: "Overrides max size for indexdb/tagFiltersToMetricIDs cache"
+    default: ""
+  vlstorage.storage_cache_size_metric_names_stats:
+    description: "Overrides max size for storage/metricNamesStatsTracker cache"
+    default: ""
+  vlstorage.storage_cache_size_storage_metric_name:
+    description: "Overrides max size for storage/metricName cache"
+    default: ""
+  vlstorage.storage_cache_size_storage_tsid:
+    description: "Overrides max size for storage/tsid cache"
+    default: ""
+
+  # Disk Space Management
+  vlstorage.storage_min_free_disk_space_bytes:
+    description: "The minimum free disk space at -storageDataPath after which the storage stops accepting new data"
+    default: "10000000"
+  vlstorage.inmemory_data_flush_interval:
+    description: "The interval for guaranteed saving of in-memory data to disk"
+    default: "5s"
+
+  # Search Configuration
+  vlstorage.search_max_tag_keys:
+    description: "The maximum number of tag keys returned per search"
+    default: 100000
+  vlstorage.search_max_tag_values:
+    description: "The maximum number of tag values returned per search"
+    default: 100000
+  vlstorage.search_max_tag_value_suffixes_per_search:
+    description: "The maximum number of tag value suffixes returned from /metrics/find"
+    default: 100000
+
+  # HTTP Server Configuration
+  vlstorage.http_conn_timeout:
+    description: "Incoming connections to -httpListenAddr are closed after the configured timeout"
+    default: "2m"
+  vlstorage.http_idle_conn_timeout:
+    description: "Timeout for incoming idle http connections"
+    default: "1m"
+  vlstorage.http_max_graceful_shutdown_duration:
+    description: "The maximum duration for a graceful shutdown of the HTTP server"
+    default: "7s"
+  vlstorage.http_shutdown_delay:
+    description: "Optional delay before http server shutdown"
+    default: ""
+  vlstorage.http_path_prefix:
+    description: "An optional prefix to add to all the paths handled by http server"
+    default: ""
+  vlstorage.http_disable_cors:
+    description: "Disable CORS for all origins (*)"
+    default: false
+  vlstorage.http_disable_keep_alive:
+    description: "Whether to disable HTTP keep-alive for incoming connections at -httpListenAddr"
+    default: false
+  vlstorage.http_disable_response_compression:
+    description: "Disable compression of HTTP responses to save CPU resources"
+    default: false
+
+  # HTTP Security Headers
+  vlstorage.http_header_csp:
+    description: "Value for 'Content-Security-Policy' header, recommended: \"default-src 'self'\""
+    default: ""
+  vlstorage.http_header_frame_options:
+    description: "Value for 'X-Frame-Options' header"
+    default: ""
+  vlstorage.http_header_hsts:
+    description: "Value for 'Strict-Transport-Security' header, recommended: 'max-age=31536000; includeSubDomains'"
+    default: ""
+
+  # Authentication
   vlstorage.http_auth_username:
-    description: "HTTP basic auth username (optional)"
+    description: "Username for HTTP server's Basic Auth. The authentication is disabled if empty"
     default: ""
   vlstorage.http_auth_password:
-    description: "HTTP basic auth password (optional)"
+    description: "Password for HTTP server's Basic Auth"
+    default: ""
+  vlstorage.flags_auth_key:
+    description: "Auth key for /flags endpoint. It must be passed via authKey query arg"
+    default: ""
+  vlstorage.metrics_auth_key:
+    description: "Auth key for /metrics endpoint. It must be passed via authKey query arg"
+    default: ""
+  vlstorage.pprof_auth_key:
+    description: "Auth key for /debug/pprof/* endpoints. It must be passed via authKey query arg"
+    default: ""
+  vlstorage.force_flush_auth_key:
+    description: "authKey, which must be passed in query string to /internal/force_flush pages"
+    default: ""
+  vlstorage.force_merge_auth_key:
+    description: "authKey, which must be passed in query string to /internal/force_merge pages"
+    default: ""
+  vlstorage.snapshot_auth_key:
+    description: "authKey, which must be passed in query string to /snapshot* pages"
+    default: ""
+  vlstorage.log_new_series_auth_key:
+    description: "authKey, which must be passed in query string to /internal/log_new_series"
+    default: ""
+
+  # TLS Configuration
+  vlstorage.tls:
+    description: "Whether to enable TLS for incoming HTTP requests at the given -httpListenAddr (aka https). Array of booleans"
+    default: []
+  vlstorage.tls_cert_file:
+    description: "Path to file with TLS certificate for the corresponding -httpListenAddr if -tls is set. Array of strings"
+    default: []
+  vlstorage.tls_key_file:
+    description: "Path to file with TLS key for the corresponding -httpListenAddr if -tls is set. Array of strings"
+    default: []
+  vlstorage.tls_cipher_suites:
+    description: "Optional list of TLS cipher suites for incoming requests over HTTPS if -tls is set. Array of strings"
+    default: []
+  vlstorage.tls_min_version:
+    description: "Optional minimum TLS version to use for the corresponding -httpListenAddr if -tls is set. Array of strings"
+    default: []
+  vlstorage.mtls:
+    description: "Whether to require valid client certificate for https requests. Array of booleans"
+    default: []
+  vlstorage.mtls_ca_file:
+    description: "Optional path to TLS Root CA for verifying client certificates. Array of strings"
+    default: []
+
+  # Cluster TLS Configuration
+  vlstorage.cluster_tls:
+    description: "Whether to use TLS when accepting connections from vminsert and vmselect"
+    default: false
+  vlstorage.cluster_tls_ca_file:
+    description: "Path to TLS CA file to use for verifying certificates provided by vminsert and vmselect"
+    default: ""
+  vlstorage.cluster_tls_cert_file:
+    description: "Path to server-side TLS certificate file to use when accepting connections from vminsert and vmselect"
+    default: ""
+  vlstorage.cluster_tls_key_file:
+    description: "Path to server-side TLS key file to use when accepting connections from vminsert and vmselect"
+    default: ""
+  vlstorage.cluster_tls_cipher_suites:
+    description: "Optional list of TLS cipher suites used for connections from vminsert and vmselect. Array of strings"
+    default: []
+  vlstorage.cluster_tls_insecure_skip_verify:
+    description: "Whether to skip verification of TLS certificates provided by vminsert and vmselect"
+    default: false
+
+  # RPC Configuration
+  vlstorage.rpc_disable_compression:
+    description: "Whether to disable compression of the data sent from vmstorage to vmselect"
+    default: false
+  vlstorage.rpc_handshake_timeout:
+    description: "Timeout for RPC handshake between vminsert/vmselect and vmstorage"
+    default: "5s"
+
+  # Logging Configuration
+  vlstorage.log_level:
+    description: "Minimum level of errors to log. Possible values: INFO, WARN, ERROR, FATAL, PANIC"
+    default: "INFO"
+  vlstorage.log_format:
+    description: "Format for logs. Possible values: default, json"
+    default: "default"
+  vlstorage.logger_disable_timestamps:
+    description: "Whether to disable writing timestamps in logs"
+    default: false
+  vlstorage.logger_output:
+    description: "Output for the logs. Supported values: stderr, stdout"
+    default: "stderr"
+  vlstorage.logger_timezone:
+    description: "Timezone to use for timestamps in logs. Timezone must be a valid IANA Time Zone"
+    default: "UTC"
+  vlstorage.logger_json_fields:
+    description: "Allows renaming fields in JSON formatted logs. Example: \"ts:timestamp,msg:message\""
+    default: ""
+  vlstorage.logger_errors_per_second_limit:
+    description: "Per-second limit on the number of ERROR messages. Zero values disable the rate limit"
+    default: 0
+  vlstorage.logger_warns_per_second_limit:
+    description: "Per-second limit on the number of WARN messages. Zero values disable the rate limit"
+    default: 0
+  vlstorage.logger_max_arg_len:
+    description: "The maximum length of a single logged argument"
+    default: 5000
+  vlstorage.log_new_series:
+    description: "Whether to log new series. This option is for debug purposes only"
+    default: false
+
+  # Push Metrics Configuration
+  vlstorage.pushmetrics_url:
+    description: "Optional URL to push metrics exposed at /metrics page. Array of strings"
+    default: []
+  vlstorage.pushmetrics_interval:
+    description: "Interval for pushing metrics to every -pushmetrics.url"
+    default: "10s"
+  vlstorage.pushmetrics_extra_label:
+    description: "Optional labels to add to metrics pushed to every -pushmetrics.url. Array of strings"
+    default: []
+  vlstorage.pushmetrics_header:
+    description: "Optional HTTP request header to send to every -pushmetrics.url. Array of strings"
+    default: []
+  vlstorage.pushmetrics_disable_compression:
+    description: "Whether to disable request body compression when pushing metrics"
+    default: false
+
+  # Snapshots Configuration
+  vlstorage.snapshots_max_age:
+    description: "Automatically delete snapshots older than -snapshotsMaxAge if set to non-zero duration"
+    default: "3d"
+
+  # Index Configuration
+  vlstorage.disable_per_day_index:
+    description: "Disable per-day index and use global index for all searches"
+    default: false
+  vlstorage.storage_idb_prefill_start:
+    description: "Specifies how early VictoriaMetrics starts pre-filling indexDB records before indexDB rotation"
+    default: "1h"
+  vlstorage.storage_final_dedup_schedule_check_interval:
+    description: "The interval for checking when final deduplication process should be started"
+    default: "1h"
+  vlstorage.storage_track_metric_names_stats:
+    description: "Whether to track ingest and query requests for timeseries metric names"
+    default: true
+
+  # Query Configuration
+  vlstorage.deny_queries_outside_retention:
+    description: "Whether to deny queries outside of the configured -retentionPeriod"
+    default: false
+  vlstorage.deny_query_tracing:
+    description: "Whether to disable the ability to trace queries"
+    default: false
+
+  # Metrics Metadata
+  vlstorage.metrics_expose_metadata:
+    description: "Whether to expose TYPE and HELP metadata at the /metrics page"
+    default: false
+
+  # Misc Configuration
+  vlstorage.precision_bits:
+    description: "The number of precision bits to store per each value. Lower precision bits improves data compression at the cost of precision loss"
+    default: 64
+  vlstorage.intern_string_max_len:
+    description: "The maximum length for strings to intern"
+    default: 500
+  vlstorage.intern_string_cache_expire_duration:
+    description: "The expiry duration for caches for interned strings"
+    default: "6m"
+  vlstorage.intern_string_disable_cache:
+    description: "Whether to disable caches for interned strings"
+    default: false
+  vlstorage.envflag_enable:
+    description: "Whether to enable reading flags from environment variables in addition to the command line"
+    default: false
+  vlstorage.envflag_prefix:
+    description: "Prefix for environment variables if -envflag.enable is set"
+    default: ""
+  vlstorage.filestream_disable_fadvise:
+    description: "Whether to disable fadvise() syscall when reading large data files"
+    default: false
+  vlstorage.fs_disable_mmap:
+    description: "Whether to use pread() instead of mmap() for reading data files"
+    default: false
+  vlstorage.storage_vminsert_conns_shutdown_duration:
+    description: "The time needed for gradual closing of vminsert connections during graceful shutdown"
+    default: "25s"
+  vlstorage.http_listen_addr_use_proxy_protocol:
+    description: "Whether to use proxy protocol for connections accepted at the given -httpListenAddr. Array of booleans"
+    default: []
+
+  # License Configuration
+  vlstorage.license:
+    description: "License key for VictoriaMetrics Enterprise"
+    default: ""
+  vlstorage.license_file:
+    description: "Path to file with license key for VictoriaMetrics Enterprise"
+    default: ""
+  vlstorage.license_file_reload_interval:
+    description: "Interval for reloading the license file specified via -licenseFile"
+    default: "1h"
+  vlstorage.license_force_offline:
+    description: "Whether to enable offline verification for VictoriaMetrics Enterprise license key"
+    default: false
+
+  # TLS Autocert Configuration
+  vlstorage.tls_autocert_hosts:
+    description: "Optional hostnames for automatic issuing of Let's Encrypt TLS certificates. Array of strings"
+    default: []
+  vlstorage.tls_autocert_email:
+    description: "Contact email for the issued Let's Encrypt TLS certificates"
+    default: ""
+  vlstorage.tls_autocert_cache_dir:
+    description: "Directory to store TLS certificates issued via Let's Encrypt"
     default: ""

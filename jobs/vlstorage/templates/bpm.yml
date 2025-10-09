@@ -1,7 +1,323 @@
 ---
 processes:
   - name: vlstorage
-    executable: /var/vcap/jobs/vlstorage/bin/vlstorage
+    executable: /var/vcap/packages/victoria-logs/bin/vmstorage
+    args:
+      # Core Configuration
+      - -storageDataPath=<%= p('vlstorage.storage_path') %>
+      - -retentionPeriod=<%= p('vlstorage.retention_period') %>
+      - -httpListenAddr=0.0.0.0:<%= p('vlstorage.http_port') %>
+      - -vminsertAddr=0.0.0.0:<%= p('vlstorage.vminsert_port') %>
+      - -vmselectAddr=0.0.0.0:<%= p('vlstorage.vmselect_port') %>
+
+      # Logging Configuration
+      - -loggerLevel=<%= p('vlstorage.log_level') %>
+      - -loggerFormat=<%= p('vlstorage.log_format') %>
+      - -loggerOutput=<%= p('vlstorage.logger_output') %>
+      - -loggerTimezone=<%= p('vlstorage.logger_timezone') %>
+      - -loggerMaxArgLen=<%= p('vlstorage.logger_max_arg_len') %>
+      <% if p('vlstorage.logger_disable_timestamps') %>
+      - -loggerDisableTimestamps
+      <% end %>
+      <% if p('vlstorage.logger_json_fields') != "" %>
+      - -loggerJSONFields=<%= p('vlstorage.logger_json_fields') %>
+      <% end %>
+      <% if p('vlstorage.logger_errors_per_second_limit') > 0 %>
+      - -loggerErrorsPerSecondLimit=<%= p('vlstorage.logger_errors_per_second_limit') %>
+      <% end %>
+      <% if p('vlstorage.logger_warns_per_second_limit') > 0 %>
+      - -loggerWarnsPerSecondLimit=<%= p('vlstorage.logger_warns_per_second_limit') %>
+      <% end %>
+      <% if p('vlstorage.log_new_series') %>
+      - -logNewSeries
+      <% end %>
+
+      # Memory Configuration
+      - -memory.allowedPercent=<%= p('vlstorage.memory_allowed_percent') %>
+      <% if p('vlstorage.memory_allowed_bytes') != "" %>
+      - -memory.allowedBytes=<%= p('vlstorage.memory_allowed_bytes') %>
+      <% end %>
+
+      # Search Configuration
+      <% if p('vlstorage.search_max_concurrent_requests') > 0 %>
+      - -search.maxConcurrentRequests=<%= p('vlstorage.search_max_concurrent_requests') %>
+      <% end %>
+      - -search.maxQueueDuration=<%= p('vlstorage.search_max_queue_duration') %>
+      - -search.maxTagKeys=<%= p('vlstorage.search_max_tag_keys') %>
+      - -search.maxTagValues=<%= p('vlstorage.search_max_tag_values') %>
+      - -search.maxTagValueSuffixesPerSearch=<%= p('vlstorage.search_max_tag_value_suffixes_per_search') %>
+      <% if p('vlstorage.search_max_unique_timeseries') > 0 %>
+      - -search.maxUniqueTimeseries=<%= p('vlstorage.search_max_unique_timeseries') %>
+      <% end %>
+
+      # Insert Configuration
+      <% if p('vlstorage.max_concurrent_inserts') > 0 %>
+      - -maxConcurrentInserts=<%= p('vlstorage.max_concurrent_inserts') %>
+      <% end %>
+      - -insert.maxQueueDuration=<%= p('vlstorage.insert_max_queue_duration') %>
+
+      # Authentication
+      <% if p('vlstorage.http_auth_username') != "" && p('vlstorage.http_auth_password') != "" %>
+      - -httpAuth.username=<%= p('vlstorage.http_auth_username') %>
+      - -httpAuth.password=<%= p('vlstorage.http_auth_password') %>
+      <% end %>
+      <% if p('vlstorage.flags_auth_key') != "" %>
+      - -flagsAuthKey=<%= p('vlstorage.flags_auth_key') %>
+      <% end %>
+      <% if p('vlstorage.metrics_auth_key') != "" %>
+      - -metricsAuthKey=<%= p('vlstorage.metrics_auth_key') %>
+      <% end %>
+      <% if p('vlstorage.pprof_auth_key') != "" %>
+      - -pprofAuthKey=<%= p('vlstorage.pprof_auth_key') %>
+      <% end %>
+      <% if p('vlstorage.force_flush_auth_key') != "" %>
+      - -forceFlushAuthKey=<%= p('vlstorage.force_flush_auth_key') %>
+      <% end %>
+      <% if p('vlstorage.force_merge_auth_key') != "" %>
+      - -forceMergeAuthKey=<%= p('vlstorage.force_merge_auth_key') %>
+      <% end %>
+      <% if p('vlstorage.snapshot_auth_key') != "" %>
+      - -snapshotAuthKey=<%= p('vlstorage.snapshot_auth_key') %>
+      <% end %>
+      <% if p('vlstorage.log_new_series_auth_key') != "" %>
+      - -logNewSeriesAuthKey=<%= p('vlstorage.log_new_series_auth_key') %>
+      <% end %>
+
+      # Deduplication
+      <% if p('vlstorage.dedup_min_scrape_interval') != "" %>
+      - -dedup.minScrapeInterval=<%= p('vlstorage.dedup_min_scrape_interval') %>
+      <% end %>
+
+      # Cardinality Limiting
+      <% if p('vlstorage.max_hourly_series') > 0 %>
+      - -storage.maxHourlySeries=<%= p('vlstorage.max_hourly_series') %>
+      <% end %>
+      <% if p('vlstorage.max_daily_series') > 0 %>
+      - -storage.maxDailySeries=<%= p('vlstorage.max_daily_series') %>
+      <% end %>
+
+      # HTTP Server Configuration
+      - -http.connTimeout=<%= p('vlstorage.http_conn_timeout') %>
+      - -http.idleConnTimeout=<%= p('vlstorage.http_idle_conn_timeout') %>
+      - -http.maxGracefulShutdownDuration=<%= p('vlstorage.http_max_graceful_shutdown_duration') %>
+      <% if p('vlstorage.http_shutdown_delay') != "" %>
+      - -http.shutdownDelay=<%= p('vlstorage.http_shutdown_delay') %>
+      <% end %>
+      <% if p('vlstorage.http_path_prefix') != "" %>
+      - -http.pathPrefix=<%= p('vlstorage.http_path_prefix') %>
+      <% end %>
+      <% if p('vlstorage.http_disable_cors') %>
+      - -http.disableCORS
+      <% end %>
+      <% if p('vlstorage.http_disable_keep_alive') %>
+      - -http.disableKeepAlive
+      <% end %>
+      <% if p('vlstorage.http_disable_response_compression') %>
+      - -http.disableResponseCompression
+      <% end %>
+
+      # HTTP Security Headers
+      <% if p('vlstorage.http_header_csp') != "" %>
+      - -http.header.csp=<%= p('vlstorage.http_header_csp') %>
+      <% end %>
+      <% if p('vlstorage.http_header_frame_options') != "" %>
+      - -http.header.frameOptions=<%= p('vlstorage.http_header_frame_options') %>
+      <% end %>
+      <% if p('vlstorage.http_header_hsts') != "" %>
+      - -http.header.hsts=<%= p('vlstorage.http_header_hsts') %>
+      <% end %>
+
+      # Cache Configuration
+      - -cacheExpireDuration=<%= p('vlstorage.cache_expire_duration') %>
+      - -prevCacheRemovalPercent=<%= p('vlstorage.prev_cache_removal_percent') %>
+      - -blockcache.missesBeforeCaching=<%= p('vlstorage.blockcache_misses_before_caching') %>
+
+      # Storage Cache Sizes
+      <% if p('vlstorage.storage_cache_size_indexdb_data_blocks') != "" %>
+      - -storage.cacheSizeIndexDBDataBlocks=<%= p('vlstorage.storage_cache_size_indexdb_data_blocks') %>
+      <% end %>
+      <% if p('vlstorage.storage_cache_size_indexdb_data_blocks_sparse') != "" %>
+      - -storage.cacheSizeIndexDBDataBlocksSparse=<%= p('vlstorage.storage_cache_size_indexdb_data_blocks_sparse') %>
+      <% end %>
+      <% if p('vlstorage.storage_cache_size_indexdb_index_blocks') != "" %>
+      - -storage.cacheSizeIndexDBIndexBlocks=<%= p('vlstorage.storage_cache_size_indexdb_index_blocks') %>
+      <% end %>
+      <% if p('vlstorage.storage_cache_size_indexdb_tag_filters') != "" %>
+      - -storage.cacheSizeIndexDBTagFilters=<%= p('vlstorage.storage_cache_size_indexdb_tag_filters') %>
+      <% end %>
+      <% if p('vlstorage.storage_cache_size_metric_names_stats') != "" %>
+      - -storage.cacheSizeMetricNamesStats=<%= p('vlstorage.storage_cache_size_metric_names_stats') %>
+      <% end %>
+      <% if p('vlstorage.storage_cache_size_storage_metric_name') != "" %>
+      - -storage.cacheSizeStorageMetricName=<%= p('vlstorage.storage_cache_size_storage_metric_name') %>
+      <% end %>
+      <% if p('vlstorage.storage_cache_size_storage_tsid') != "" %>
+      - -storage.cacheSizeStorageTSID=<%= p('vlstorage.storage_cache_size_storage_tsid') %>
+      <% end %>
+
+      # Disk Space Management
+      - -storage.minFreeDiskSpaceBytes=<%= p('vlstorage.storage_min_free_disk_space_bytes') %>
+      - -inmemoryDataFlushInterval=<%= p('vlstorage.inmemory_data_flush_interval') %>
+
+      # Index Configuration
+      <% if p('vlstorage.disable_per_day_index') %>
+      - -disablePerDayIndex
+      <% end %>
+      - -storage.idbPrefillStart=<%= p('vlstorage.storage_idb_prefill_start') %>
+      - -storage.finalDedupScheduleCheckInterval=<%= p('vlstorage.storage_final_dedup_schedule_check_interval') %>
+      <% if !p('vlstorage.storage_track_metric_names_stats') %>
+      - -storage.trackMetricNamesStats=false
+      <% end %>
+
+      # Query Configuration
+      <% if p('vlstorage.deny_queries_outside_retention') %>
+      - -denyQueriesOutsideRetention
+      <% end %>
+      <% if p('vlstorage.deny_query_tracing') %>
+      - -denyQueryTracing
+      <% end %>
+
+      # Retention Configuration
+      <% if p('vlstorage.retention_timezone_offset') != "" %>
+      - -retentionTimezoneOffset=<%= p('vlstorage.retention_timezone_offset') %>
+      <% end %>
+      <% p('vlstorage.retention_filter').each do |filter| %>
+      - -retentionFilter=<%= filter %>
+      <% end %>
+      <% p('vlstorage.downsampling_period').each do |period| %>
+      - -downsampling.period=<%= period %>
+      <% end %>
+
+      # Snapshots
+      - -snapshotsMaxAge=<%= p('vlstorage.snapshots_max_age') %>
+
+      # Network Configuration
+      <% if p('vlstorage.enable_tcp6') %>
+      - -enableTCP6
+      <% end %>
+
+      # RPC Configuration
+      <% if p('vlstorage.rpc_disable_compression') %>
+      - -rpc.disableCompression
+      <% end %>
+      - -rpc.handshakeTimeout=<%= p('vlstorage.rpc_handshake_timeout') %>
+
+      # Cluster TLS Configuration
+      <% if p('vlstorage.cluster_tls') %>
+      - -cluster.tls
+      <% end %>
+      <% if p('vlstorage.cluster_tls_ca_file') != "" %>
+      - -cluster.tlsCAFile=<%= p('vlstorage.cluster_tls_ca_file') %>
+      <% end %>
+      <% if p('vlstorage.cluster_tls_cert_file') != "" %>
+      - -cluster.tlsCertFile=<%= p('vlstorage.cluster_tls_cert_file') %>
+      <% end %>
+      <% if p('vlstorage.cluster_tls_key_file') != "" %>
+      - -cluster.tlsKeyFile=<%= p('vlstorage.cluster_tls_key_file') %>
+      <% end %>
+      <% p('vlstorage.cluster_tls_cipher_suites').each do |suite| %>
+      - -cluster.tlsCipherSuites=<%= suite %>
+      <% end %>
+      <% if p('vlstorage.cluster_tls_insecure_skip_verify') %>
+      - -cluster.tlsInsecureSkipVerify
+      <% end %>
+
+      # TLS Configuration
+      <% p('vlstorage.tls').each_with_index do |enabled, i| %>
+        <% if enabled %>
+      - -tls
+        <% end %>
+      <% end %>
+      <% p('vlstorage.tls_cert_file').each do |cert| %>
+      - -tlsCertFile=<%= cert %>
+      <% end %>
+      <% p('vlstorage.tls_key_file').each do |key| %>
+      - -tlsKeyFile=<%= key %>
+      <% end %>
+      <% p('vlstorage.tls_cipher_suites').each do |suite| %>
+      - -tlsCipherSuites=<%= suite %>
+      <% end %>
+      <% p('vlstorage.tls_min_version').each do |version| %>
+      - -tlsMinVersion=<%= version %>
+      <% end %>
+      <% p('vlstorage.mtls').each_with_index do |enabled, i| %>
+        <% if enabled %>
+      - -mtls
+        <% end %>
+      <% end %>
+      <% p('vlstorage.mtls_ca_file').each do |ca| %>
+      - -mtlsCAFile=<%= ca %>
+      <% end %>
+
+      # TLS Autocert Configuration
+      <% p('vlstorage.tls_autocert_hosts').each do |host| %>
+      - -tlsAutocertHosts=<%= host %>
+      <% end %>
+      <% if p('vlstorage.tls_autocert_email') != "" %>
+      - -tlsAutocertEmail=<%= p('vlstorage.tls_autocert_email') %>
+      <% end %>
+      <% if p('vlstorage.tls_autocert_cache_dir') != "" %>
+      - -tlsAutocertCacheDir=<%= p('vlstorage.tls_autocert_cache_dir') %>
+      <% end %>
+
+      # Push Metrics Configuration
+      <% p('vlstorage.pushmetrics_url').each do |url| %>
+      - -pushmetrics.url=<%= url %>
+      <% end %>
+      - -pushmetrics.interval=<%= p('vlstorage.pushmetrics_interval') %>
+      <% p('vlstorage.pushmetrics_extra_label').each do |label| %>
+      - -pushmetrics.extraLabel=<%= label %>
+      <% end %>
+      <% p('vlstorage.pushmetrics_header').each do |header| %>
+      - -pushmetrics.header=<%= header %>
+      <% end %>
+      <% if p('vlstorage.pushmetrics_disable_compression') %>
+      - -pushmetrics.disableCompression
+      <% end %>
+
+      # Metrics Metadata
+      <% if p('vlstorage.metrics_expose_metadata') %>
+      - -metrics.exposeMetadata
+      <% end %>
+
+      # Misc Configuration
+      - -precisionBits=<%= p('vlstorage.precision_bits') %>
+      - -internStringMaxLen=<%= p('vlstorage.intern_string_max_len') %>
+      - -internStringCacheExpireDuration=<%= p('vlstorage.intern_string_cache_expire_duration') %>
+      <% if p('vlstorage.intern_string_disable_cache') %>
+      - -internStringDisableCache
+      <% end %>
+      <% if p('vlstorage.envflag_enable') %>
+      - -envflag.enable
+      <% end %>
+      <% if p('vlstorage.envflag_prefix') != "" %>
+      - -envflag.prefix=<%= p('vlstorage.envflag_prefix') %>
+      <% end %>
+      <% if p('vlstorage.filestream_disable_fadvise') %>
+      - -filestream.disableFadvise
+      <% end %>
+      <% if p('vlstorage.fs_disable_mmap') %>
+      - -fs.disableMmap
+      <% end %>
+      - -storage.vminsertConnsShutdownDuration=<%= p('vlstorage.storage_vminsert_conns_shutdown_duration') %>
+      <% p('vlstorage.http_listen_addr_use_proxy_protocol').each_with_index do |enabled, i| %>
+        <% if enabled %>
+      - -httpListenAddr.useProxyProtocol
+        <% end %>
+      <% end %>
+
+      # License Configuration
+      <% if p('vlstorage.license') != "" %>
+      - -license=<%= p('vlstorage.license') %>
+      <% end %>
+      <% if p('vlstorage.license_file') != "" %>
+      - -licenseFile=<%= p('vlstorage.license_file') %>
+      <% end %>
+      - -licenseFile.reloadInterval=<%= p('vlstorage.license_file_reload_interval') %>
+      <% if p('vlstorage.license_force_offline') %>
+      - -license.forceOffline
+      <% end %>
+
     persistent_disk: true
     ephemeral_disk: false
 
@@ -9,16 +325,5 @@ processes:
       open_files: 65536
 
     env:
-      DOCKER_HOST: unix:///var/vcap/sys/run/docker/docker.sock
-      VLSTORAGE_PORT: <%= p('vlstorage.port') %>
-      VLSTORAGE_STORAGE_PATH: <%= p('vlstorage.storage_path') %>
-      VLSTORAGE_LOG_LEVEL: <%= p('vlstorage.log_level') %>
-
-    unsafe:
-      privileged: true
-
-    additional_volumes:
-      - path: /var/vcap/sys/run/docker/docker.sock
-        writable: true
-      - path: /var/vcap/sys/run/ready
-        writable: true
+      GOGC: "100"
+      GOMAXPROCS: "4"

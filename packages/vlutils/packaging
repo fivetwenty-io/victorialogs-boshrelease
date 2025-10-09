@@ -1,0 +1,30 @@
+#!/bin/bash
+set -e
+
+# Extract VictoriaMetrics utilities
+tar -xzf vmutils/vmutils-linux-amd64-v1.127.0.tar.gz
+
+# Create bin directory
+mkdir -p ${BOSH_INSTALL_TARGET}/bin
+
+# Check what utilities are actually in the archive
+echo "Contents of the archive:"
+ls -la
+
+# Install all VictoriaMetrics utility binaries
+# The archive contains: vmagent-prod, vmalert-prod, vmalert-tool-prod, vmauth-prod, vmbackup-prod, vmrestore-prod, vmctl-prod
+for binary in *-prod; do
+  if [ -f "$binary" ]; then
+    # Remove -prod suffix when installing
+    target_name=$(echo "$binary" | sed 's/-prod$//')
+    echo "Installing $binary as $target_name"
+    cp "$binary" "${BOSH_INSTALL_TARGET}/bin/${target_name}"
+  fi
+done
+
+# Make binaries executable
+chmod +x ${BOSH_INSTALL_TARGET}/bin/*
+
+# List installed binaries
+echo "Installed binaries:"
+ls -la ${BOSH_INSTALL_TARGET}/bin/

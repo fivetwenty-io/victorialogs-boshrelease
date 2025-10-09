@@ -1,0 +1,5 @@
+---
+name: victoria-logs
+dependencies: []
+files:
+- victoria-metrics/victoria-metrics-linux-amd64-v1.127.0-cluster.tar.gz
